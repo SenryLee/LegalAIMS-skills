@@ -72,8 +72,8 @@
 
 | 模块 | 推荐做法 | 备注 |
 |---|---|---|
-| 运行环境 | 一台 **国内 Linux**（你已有 `tencent-gz` 很合适）+ Docker Compose | 中文官网/公众号从境外抓经常不稳 |
-| 数据 | Postgres（条目/信源/精选状态）+ Redis（队列/锁） | 起步也可用 SQLite，但不建议上线后还用 |
+| 运行环境 | 阿里云「法锤智能」ECS（深圳，Ubuntu 22.04，**2C2G**）+ Docker Compose；nginx 复用本机 | 详见 [`deploy/DNS.md`](./deploy/DNS.md)；内存紧，单栈部署 |
+| 数据 | MVP 可用 SQLite 或限内存 Postgres；暂缓 Redis | 2G 机器先省资源，量上来再拆 |
 | 抓取 | RSS 用标准解析；网页用站点适配器；公众号单独适配器 | 每源一个 connector，失败隔离 |
 | 任务 | cron / 队列 worker，P0 源 15–60 分钟一轮 | 官方源可更频，媒体源更慢 |
 | LLM | 你指定的 API（摘要/分类/打分） | 提示词要强调：非法律意见、数字回原文 |
@@ -122,9 +122,10 @@ lawhot/
 
 | 项 | 为什么 | 建议 |
 |---|---|---|
-| **服务器** | 跑抓取、DB、API | 国内 2C4G 起；Docker 可用。你现成的 `tencent-gz` 可作 MVP |
-| **域名** | Skill/API 稳定入口、HTTPS | 一级域或子域均可，如 `lawhot.你的域` |
-| **HTTPS 证书** | Agent/浏览器信任 | Nginx + Let’s Encrypt 即可 |
+| **服务器** | 跑抓取、DB、API | ✅ 已定：阿里云 `47.119.184.45`（法锤智能，2C2G）。Workbench 免密由你操作，我出一键脚本 |
+| **域名** | Skill/API 稳定入口、HTTPS | ✅ 主域 `fachuiai.com` 已占用工作台 → 资讯用 **`hot.fachuiai.com`**（见 [`deploy/DNS.md`](./deploy/DNS.md)） |
+| **DNS / 安全组** | 解析与 80/443 | 你加 `hot` A 记录 + 放行 80/443 |
+| **HTTPS 证书** | Agent/浏览器信任 | 复用本机 nginx + certbot 签 `hot.fachuiai.com` |
 | **LLM API Key** | 摘要、分类、打分、日报 | 指定厂商与月预算上限 |
 | **信源确认** | 尤其是微信 `__biz`、国产厂商取舍 | 见 `sources.md` |
 
@@ -154,11 +155,11 @@ lawhot/
 
 ## 6. 推荐协作节奏（你 ↔ Agent）
 
-1. **你**：确认品牌暂定名、域名意向、是否用 `tencent-gz`、LLM 选用、公众号清单  
-2. **我**：定 API 合同草案 + Skill `SKILL.md` 骨架（仍指向「即将上线」或 staging）  
-3. **我/你**：在服务器起 Docker MVP，先接通 RSS P0  
+1. **你**：DNS 添加 `hot.fachuiai.com`、安全组放行 80/443；确认 LLM 与公众号清单  
+2. **我**：定 API 合同草案 + Skill `SKILL.md` 骨架（base URL = `https://hot.fachuiai.com`）  
+3. **我**：写出中台 MVP + `deploy/one-click.sh`；**你在 Workbench 粘贴执行**  
 4. **你**：抽 2–3 天人工过精选，校准打分与主线比例  
-5. **我**：接通日报 + 正式 Skill 安装包 + 安装验证句  
+5. **我**：接通日报 + 正式 Skill 安装包；用公网 URL 验收  
 
 ## 7. 风险与边界（提前说清）
 
@@ -173,6 +174,6 @@ lawhot/
 
 1. 写 `lawhot/SKILL.md` 骨架（分类、触发词、输出模板、安全边界）  
 2. 写 `references/api.md` 合同（可与 aihot 字段对齐，换 base URL）  
-3. 若你开通 `tencent-gz` 目录与域名，再起中台 MVP 仓库/Compose  
+3. 你完成 `hot.fachuiai.com` DNS 后，我交付中台 MVP + Workbench 一键脚本  
 
-在此之前，**信源表就是第一步交付物**；请优先回 `sources.md` 里「你需要尽快确认」的 5 条。
+域名与服务器细则：[`deploy/DNS.md`](./deploy/DNS.md)。信源待确认项仍见 `sources.md`。

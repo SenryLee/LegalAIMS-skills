@@ -9,7 +9,8 @@
 |---|---|
 | ✅ | 可落地信源表：[`references/sources.md`](./references/sources.md) / [`sources.v1.yaml`](./references/sources.v1.yaml) |
 | ✅ | 中台与改造路径：[`BUILD.md`](./BUILD.md) |
-| ⏳ | 内容中台 API、正式 `SKILL.md`、安装器（待域名/服务器/LLM 与信源确认） |
+| ✅ | 域名/服务器约定：[`deploy/DNS.md`](./deploy/DNS.md)（`hot.fachuiai.com` @ 阿里云法锤智能） |
+| ⏳ | 内容中台 API、正式 `SKILL.md`、Workbench 一键部署脚本 |
 
 ## 快速阅读
 
