@@ -318,10 +318,40 @@ async def home(request: Request) -> Any:
         by="timeline",
         category=None,
         q=None,
-        limit=30,
+        limit=40,
         offset=0,
     )
-    return HTMLResponse(render_home(rows, stats))
+    # 首页优先展示更“法律向”的分类，避免厂商通稿占满首屏
+    priority = {
+        "regulation": 0,
+        "litigation": 1,
+        "legaltech": 2,
+        "practice": 3,
+        "insight": 4,
+        "vendor": 5,
+    }
+    rows = sorted(
+        rows,
+        key=lambda r: (
+            priority.get(r["category"] or "", 9),
+            # 同分类内新收录在前（ISO 时间字符串倒序）
+            r["discovered_at"] or "",
+        ),
+    )
+    # sort 稳定但 discovered_at 正向；再按分类分组并反转时间
+    buckets: dict[str, list] = {c: [] for c in priority}
+    other: list = []
+    for r in rows:
+        cat = r["category"] or "insight"
+        if cat in buckets:
+            buckets[cat].append(r)
+        else:
+            other.append(r)
+    ordered = []
+    for cat in priority:
+        ordered.extend(reversed(buckets[cat]))
+    ordered.extend(reversed(other))
+    return HTMLResponse(render_home(ordered[:30], stats))
 
 
 @app.get("/items/{item_id}")
