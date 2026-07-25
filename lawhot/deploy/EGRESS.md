@@ -1,82 +1,81 @@
-# 出境访问约束（阿里云大陆机）
+# 出境访问约束与方案 A（洛杉矶代理）
 
 ## 结论
 
-深圳 ECS **默认不能稳定访问中国大陆以外网站**。  
-这对 LawHOT 影响很大：当前 P0 里约 **一半是境外 RSS/网页**（Artificial Lawyer、OpenAI、Federal Register、DeepMind…）。  
-**不解决出境，英文信源表就只是“设计”，不是“可抓”。**
+深圳 ECS **默认不能稳定访问境外站**。P0 英文 RSS 必须走代理，否则抓不到。
 
-大陆源（网信办、最高法、公众号等）不受影响。
+已选 **方案 A**：阿里云中台直连国内源；境外源经洛杉矶 HTTP 代理出网。
 
-## 影响面
+## 洛杉矶代理（已就绪）
 
-| 能力 | 无出境时 | 说明 |
-|---|---|---|
-| 境外 RSS / 官网 | ❌ 基本失败 | MVP 英文精选会空或极少 |
-| Anthropic 等网页抓取 | ❌ | 同上 |
-| 中文官网 / 公众号 | ✅ | 应用国内 connector |
-| Docker / GitHub 拉取 | ⚠️ 常卡 | 已用镜像绕过一部分 |
-| 境外 LLM API（OpenAI 等） | ⚠️/❌ | 建议国内模型或走代理 |
-| 对外提供 `hot.fachuiai.com` API | ✅ | 入站与出站无关 |
+| 项 | 值 |
+|---|---|
+| 主机 | `192.3.90.184`（dedirock-711993720） |
+| 服务 | tinyproxy（独立端口，**不动**现有 sing-box） |
+| 端口 | `13128` |
+| 账号 | `lawhot` |
+| 密码 | 只存在洛杉矶机：`/etc/lawhot/proxy.env`（chmod 600） |
+| IP 白名单 | 仅 `127.0.0.1` + 阿里云公网 `47.119.184.45` |
+| 鉴权 | BasicAuth；无密码 → 407；非白名单 IP → 403 |
 
-## 三种解法（按推荐顺序）
-
-### 方案 A · 抓取走 HTTP 代理（最省事，推荐）
-
-再准备一台**有出境能力的小 VPS**（香港/海外 1 核即可），只做正向代理。  
-大陆 `lawhot` 容器仅给 **fetcher** 配：
+在洛杉矶机查看完整连接串：
 
 ```bash
-# /opt/lawhot/repo/lawhot/deploy/.env
-LAWHOT_HTTP_PROXY=http://user:pass@YOUR_PROXY_HOST:7890
-LAWHOT_HTTPS_PROXY=http://user:pass@YOUR_PROXY_HOST:7890
-# 国内源不要走代理
-LAWHOT_NO_PROXY=localhost,127.0.0.1,.cn,cac.gov.cn,court.gov.cn,gov.cn,miit.gov.cn
+sudo cat /etc/lawhot/proxy.env
 ```
 
-- API / 数据库 / nginx 仍在阿里云（延迟低、备案友好）
-- 只有抓取流量出代理
-- 成本通常远低于整机迁海外
+本机自检（在洛杉矶执行）：
 
-### 方案 B · 海外 Fetcher + 大陆 API（更干净）
-
-```text
-[海外小机] 定时抓取英文源 → POST 推送到
-[阿里云 hot.fachuiai.com] /admin/ingest-push（鉴权）
-         ↓
-      SQLite/API/Skill
+```bash
+source /etc/lawhot/proxy.env
+curl -sS -o /dev/null -w "%{http_code}\n" \
+  -x "http://${LAWHOT_PROXY_USER}:${LAWHOT_PROXY_PASS}@127.0.0.1:${LAWHOT_PROXY_PORT}" \
+  https://openai.com/news/rss.xml
+# 期望 200
 ```
 
-- 大陆机永不主动访问境外
-- 推送接口需 `LAWHOT_ADMIN_TOKEN`，防冒灌
-- 适合你后面信源变多、代理不稳定时
+## 阿里云中台如何接上
 
-### 方案 C · 先做「中文 MVP」，英文后置（权宜）
+部署 LawHOT 后，编辑 `/opt/lawhot/repo/lawhot/deploy/.env`（或 `lawhot/deploy/.env`）：
 
-无代理时先只开：
+```bash
+# 把 YOUR_PASS 换成洛杉矶 /etc/lawhot/proxy.env 里的 LAWHOT_PROXY_PASS
+LAWHOT_HTTP_PROXY=http://lawhot:YOUR_PASS@192.3.90.184:13128
+LAWHOT_HTTPS_PROXY=http://lawhot:YOUR_PASS@192.3.90.184:13128
+LAWHOT_NO_PROXY=localhost,127.0.0.1,.cn,cac.gov.cn,court.gov.cn,gov.cn,miit.gov.cn,npc.gov.cn,moj.gov.cn,legaldaily.com.cn
+```
 
-- 网信办 / 最高法 / 政府网 / 法治日报
-- 核心法律 AI 公众号
+然后重建容器：
 
-英文源保持在 `sources.v1.yaml` 但 `enabled: false`，等 A/B 就绪再开。  
-**可以上线 Skill，但定位变成「中国法律 AI 资讯」而非「全球」。**
+```bash
+cd /opt/lawhot/repo/lawhot/deploy
+docker compose --env-file .env up -d
+# 手动触发一次抓取
+token=$(grep ^LAWHOT_ADMIN_TOKEN= .env | cut -d= -f2-)
+curl -sS -X POST -H "x-admin-token: $token" http://127.0.0.1:18080/admin/ingest
+curl -s http://127.0.0.1:18080/healthz
+# 应看到 "proxy_configured": true，且 last_ingest_stats 里 overseas_attempted > 0
+```
 
-## 不建议的做法
+## 中台行为
 
-- 指望 RSS 源“刚好有国内镜像”——法律垂直源几乎没有
-- 整站迁到海外 VPS：国内访问与合规/备案更麻烦，主站 `fachuiai.com` 已在阿里云
-- 在 2C2G 上跑复杂翻墙客户端与中台抢内存——用独立小代理更稳
+- `source_needs_proxy()`：国内 `region:[cn]` / 公众号 → **直连**
+- 其它 RSS/网页 → **必须走代理**；未配置代理则跳过并打日志（避免空转超时）
+- `healthz.proxy_configured` 只反映是否配置，不回显密码
 
-## 和信源表的关系
+## 安全提醒
 
-- **信源名单仍然有效**：它描述“该追谁”，不绑定“谁去抓”
-- **落地时多一列运行时标签**：`egress: domestic | overseas`
-- 抓取调度：`domestic` 直连；`overseas` 必须经 proxy 或海外 worker
+1. **勿把代理密码、root 密码提交到 git / 发到公开 Issue**
+2. 根密码若曾在聊天中出现，建议在洛杉矶机尽快 `passwd` 更换
+3. 代理仅放行阿里云 IP；换 ECS 公网 IP 后需改 tinyproxy `Allow` 并 `systemctl restart tinyproxy`
+4. 不要拿这个 tinyproxy 给浏览器日常翻墙用；LawHOT 抓取专用即可
 
-## 你需要拍板的一句话
+## 运维命令（洛杉矶）
 
-1. **有境外代理/小 VPS** → 走方案 A（推荐），全球源可按原表推进  
-2. **暂时没有** → 先方案 C 上中文 MVP，同时准备代理  
-3. **愿意拆服务** → 方案 B  
-
-没有出境能力时，不必改品牌方向，但要改 **抓取拓扑**，不能假设深圳机直连 OpenAI Blog。
+```bash
+systemctl status tinyproxy
+journalctl -u tinyproxy -n 50 --no-pager
+# 若阿里云换 IP：
+# 编辑 /etc/tinyproxy/tinyproxy.conf 的 Allow 行，然后：
+systemctl restart tinyproxy
+```

@@ -15,7 +15,13 @@ import yaml
 
 from . import db
 from .classify import classify_category, relevance_ok, score_item, should_select
-from .config import PUBLIC_BASE_URL, SOURCES_YAML, USER_AGENT
+from .config import (
+    LAWHOT_HTTP_PROXY,
+    PUBLIC_BASE_URL,
+    SOURCES_YAML,
+    USER_AGENT,
+    source_needs_proxy,
+)
 
 logger = logging.getLogger("lawhot.ingest")
 SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -72,11 +78,12 @@ def _clean_html(text: str) -> str:
 async def fetch_feed(client: httpx.AsyncClient, source: dict[str, Any]) -> list[dict[str, Any]]:
     feed_url = source["feed"]
     try:
-        resp = await client.get(feed_url, timeout=25.0)
+        resp = await client.get(feed_url, timeout=30.0)
         resp.raise_for_status()
         parsed = feedparser.parse(resp.content)
     except Exception as exc:
-        logger.warning("feed failed %s: %s", source.get("id"), exc)
+        via = "proxy" if source_needs_proxy(source) and LAWHOT_HTTP_PROXY else "direct"
+        logger.warning("feed failed %s (%s): %s", source.get("id"), via, exc)
         return []
 
     items: list[dict[str, Any]] = []
@@ -130,18 +137,65 @@ async def run_ingest_once() -> dict[str, int]:
     sources = load_sources()
     fetched = 0
     stored = 0
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/rss+xml, application/xml, text/xml, */*"}
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+    overseas = 0
+    domestic = 0
+    skipped_no_proxy = 0
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    }
+
+    direct_client = httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0)
+    proxy_client: httpx.AsyncClient | None = None
+    if LAWHOT_HTTP_PROXY:
+        proxy_client = httpx.AsyncClient(
+            headers=headers,
+            follow_redirects=True,
+            timeout=45.0,
+            proxy=LAWHOT_HTTP_PROXY,
+        )
+        logger.info("overseas proxy enabled")
+    else:
+        logger.warning(
+            "LAWHOT_HTTP_PROXY unset: overseas RSS will be skipped on mainland hosts"
+        )
+
+    try:
         for source in sources:
+            needs_proxy = source_needs_proxy(source)
+            if needs_proxy:
+                if proxy_client is None:
+                    skipped_no_proxy += 1
+                    logger.warning("skip overseas source without proxy: %s", source.get("id"))
+                    continue
+                client = proxy_client
+                overseas += 1
+            else:
+                client = direct_client
+                domestic += 1
             batch = await fetch_feed(client, source)
             fetched += len(batch)
             for item in batch:
                 db.upsert_item(item)
                 stored += 1
+    finally:
+        await direct_client.aclose()
+        if proxy_client is not None:
+            await proxy_client.aclose()
+
+    stats = {
+        "sources": len(sources),
+        "fetched": fetched,
+        "stored": stored,
+        "overseas_attempted": overseas,
+        "domestic_attempted": domestic,
+        "skipped_no_proxy": skipped_no_proxy,
+        "proxy_configured": bool(LAWHOT_HTTP_PROXY),
+    }
     db.set_meta("last_ingest_at", datetime.now(timezone.utc).isoformat())
-    db.set_meta("last_ingest_stats", f"sources={len(sources)};fetched={fetched};stored={stored}")
+    db.set_meta("last_ingest_stats", str(stats))
     maybe_build_daily()
-    return {"sources": len(sources), "fetched": fetched, "stored": stored}
+    return stats
 
 
 def maybe_build_daily() -> None:

@@ -9,7 +9,7 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from . import __version__, db
-from .config import FETCH_INTERVAL_SECONDS, PUBLIC_BASE_URL
+from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, PUBLIC_BASE_URL
 from .ingest import run_ingest_once
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -121,6 +121,7 @@ async def healthz() -> dict[str, Any]:
         "ok": True,
         "version": __version__,
         "stats": db.stats(),
+        "proxy_configured": bool(LAWHOT_HTTP_PROXY),
         "last_ingest_at": db.get_meta("last_ingest_at"),
         "last_ingest_stats": db.get_meta("last_ingest_stats"),
     }
