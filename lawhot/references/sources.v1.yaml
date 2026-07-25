@@ -582,13 +582,13 @@ sources:
     name: Above the Law
     lang: en
     region: [us]
-    tier: P1
+    tier: P2
     channel: rss
     homepage: https://abovethelaw.com/
     feed: https://abovethelaw.com/feed/
     tracks: [ai_x_law, law_x_ai]
     trust: specialty_media
-    notes: 噪声大；只保留 AI/tech 标签或标题命中。
+    notes: 噪声大；MVP 默认不抓，二期再开且强制 AI×法律双关键词。
     status: { reachability: ok_rss }
 
   - id: en-harvey-blog
@@ -671,13 +671,13 @@ sources:
     name: White House News
     lang: en
     region: [us]
-    tier: P1
+    tier: P2
     channel: rss
     homepage: https://www.whitehouse.gov/news/
     feed: https://www.whitehouse.gov/news/feed/
     tracks: [law_x_ai]
     trust: official
-    notes: 行政令/AI 政策；关键词过滤。
+    notes: 全站噪声大；MVP 默认不抓，改盯 AI 行政令专题页。
     status: { reachability: ok_rss }
 
   - id: en-courtlistener

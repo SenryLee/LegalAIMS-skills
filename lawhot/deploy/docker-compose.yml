@@ -1,0 +1,29 @@
+services:
+  lawhot:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: lawhot
+    restart: unless-stopped
+    environment:
+      LAWHOT_PUBLIC_BASE_URL: ${LAWHOT_PUBLIC_BASE_URL:-https://hot.fachuiai.com}
+      LAWHOT_FETCH_INTERVAL_SECONDS: ${LAWHOT_FETCH_INTERVAL_SECONDS:-1800}
+      LAWHOT_ADMIN_TOKEN: ${LAWHOT_ADMIN_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    volumes:
+      - lawhot_data:/data
+    ports:
+      - "127.0.0.1:18080:8080"
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  lawhot_data:

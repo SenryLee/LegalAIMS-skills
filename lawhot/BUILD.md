@@ -33,22 +33,22 @@
 
 - [x] 信源注册表 `references/sources.v1.yaml`
 - [x] 人类执行版 `references/sources.md`
+- [x] 域名 `hot.fachuiai.com` DNS
 - [ ] 你确认公众号 / 国产厂商 / 主线比例（见文末清单）
 
 ### 第 1 期 · MVP（可对外试用）
 
 **中台最小闭环：**
 
-1. 定时拉 P0 RSS + 少量网页源  
-2. 归一化条目（title / url / publishedAt / source / lang / track）  
-3. LLM：中文摘要 + 主线分类 + 0–100 分 + 「对律师/法务的一句话启示」  
-4. 精选池 + 最近 7 天公开池  
-5. 对外只读 API（先对齐 aihot 子集）：
-   - `GET /api/v1/items`
-   - `GET /api/v1/dailies/latest`（可先人工/半自动）
-6. Skill：`SKILL.md` 只打上述 API，安全边界照抄 aihot  
+1. [x] 定时拉 P0/P1 RSS  
+2. [x] 归一化条目（title / url / publishedAt / source / category / score）  
+3. [x] 规则打分 + 分类（LLM 摘要为可选增强，不阻塞上线）  
+4. [x] 精选池 + 最近 7 天公开池  
+5. [x] 对外只读 API：`items` / `hot-topics` / `dailies` + `feed.xml`  
+6. [x] Skill：`SKILL.md`  
+7. [x] Workbench 一键部署：`deploy/one-click.sh`  
 
-**先不做：** hot-topics 多源聚合、snapshot 同步、周月报、全文站内阅读、X。
+**先不做：** 稳健网页抓取、公众号、snapshot 同步、周月报、精美 HTML 详情页、X。
 
 ### 第 2 期 · 编辑部能力
 
