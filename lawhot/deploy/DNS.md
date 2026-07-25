@@ -127,11 +127,18 @@ cd /opt/lawhot && ./deploy/one-click.sh
 
 ## 7. 一键部署（DNS 已就绪后）
 
-在阿里云 Workbench（root）粘贴：
+国内服务器请**先下载再执行**（避免 `raw.githubusercontent.com` 静默卡住）：
 
 ```bash
+# 若旧命令卡住：Ctrl+C
+curl -fL --connect-timeout 10 --max-time 60 \
+  -o /tmp/lawhot-one-click.sh \
+  "https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@cursor/lawhot-sources-plan-e591/lawhot/deploy/one-click.sh"
+wc -c /tmp/lawhot-one-click.sh && head -n 2 /tmp/lawhot-one-click.sh
+
 export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
-curl -fsSL https://raw.githubusercontent.com/SenryLee/LegalAIMS-skills/${LAWHOT_REPO_BRANCH}/lawhot/deploy/one-click.sh | bash
+export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
+bash /tmp/lawhot-one-click.sh
 ```
 
 部署后本机验收：
