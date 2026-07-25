@@ -33,21 +33,42 @@ need_root() {
 
 configure_docker_mirror() {
   mkdir -p /etc/docker
-  if [[ -f /etc/docker/daemon.json ]]; then
-    log "保留已有 /etc/docker/daemon.json"
-    return
-  fi
-  # 国内拉 python 基础镜像更稳（可按你账号改成阿里云个人镜像加速器）
-  cat > /etc/docker/daemon.json <<'JSON'
+  # 始终写入常用国内 mirror（不覆盖用户自定义其它字段时：若文件已存在且含 mirrors 则跳过）
+  if [[ -f /etc/docker/daemon.json ]] && grep -q registry-mirrors /etc/docker/daemon.json; then
+    log "已有 registry-mirrors，保留 /etc/docker/daemon.json"
+  else
+    cat > /etc/docker/daemon.json <<'JSON'
 {
   "registry-mirrors": [
-    "https://docker.1ms.run",
-    "https://docker.m.daocloud.io"
+    "https://docker.m.daocloud.io",
+    "https://docker.1ms.run"
   ]
 }
 JSON
-  systemctl restart docker || true
-  log "已写入 Docker registry mirrors"
+    systemctl restart docker || true
+    log "已写入 Docker registry mirrors"
+  fi
+}
+
+ensure_base_image() {
+  # 不依赖 docker.io 匿名拉取；直接从国内可访问的完整路径拉基础镜像
+  local candidates=(
+    "${LAWHOT_BASE_IMAGE:-}"
+    "docker.m.daocloud.io/library/python:3.12-slim"
+    "docker.1ms.run/library/python:3.12-slim"
+    "dockerproxy.net/library/python:3.12-slim"
+  )
+  local img
+  for img in "${candidates[@]}"; do
+    [[ -n "${img}" ]] || continue
+    log "尝试拉取基础镜像: ${img}"
+    if docker pull "${img}"; then
+      export LAWHOT_BASE_IMAGE="${img}"
+      log "基础镜像就绪: ${LAWHOT_BASE_IMAGE}"
+      return 0
+    fi
+  done
+  die "无法拉取 python:3.12-slim 基础镜像。请检查网络，或手动 docker pull 后设置 LAWHOT_BASE_IMAGE"
 }
 
 install_docker() {
@@ -140,6 +161,16 @@ sync_repo() {
   [[ -d "${LAWHOT_DIR}" ]] || die "仓库中未找到 lawhot/ 目录"
 }
 
+upsert_env() {
+  local file="$1" key="$2" value="$3"
+  if grep -q "^${key}=" "${file}" 2>/dev/null; then
+    # 用 | 分隔避免代理 URL 里的 /
+    sed -i "s|^${key}=.*|${key}=${value}|" "${file}"
+  else
+    echo "${key}=${value}" >> "${file}"
+  fi
+}
+
 prepare_env() {
   mkdir -p "${INSTALL_ROOT}"
   local env_file="${LAWHOT_DIR}/deploy/.env"
@@ -147,13 +178,20 @@ prepare_env() {
     cp "${LAWHOT_DIR}/deploy/.env.example" "${env_file}"
     local token
     token="$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | xxd -p)"
-    sed -i "s/^LAWHOT_ADMIN_TOKEN=.*/LAWHOT_ADMIN_TOKEN=${token}/" "${env_file}"
-    sed -i "s|^LAWHOT_PUBLIC_BASE_URL=.*|LAWHOT_PUBLIC_BASE_URL=${PUBLIC_BASE_URL}|" "${env_file}"
-    log "已生成 ${env_file}（请按需填入 OPENAI_API_KEY）"
+    upsert_env "${env_file}" "LAWHOT_ADMIN_TOKEN" "${token}"
+    log "已生成 ${env_file}"
   else
-    log "保留已有 ${env_file}"
+    log "更新已有 ${env_file}（保留 ADMIN_TOKEN，覆盖代理/镜像等部署变量）"
   fi
-  # 方便找数据与日志
+  upsert_env "${env_file}" "LAWHOT_PUBLIC_BASE_URL" "${PUBLIC_BASE_URL}"
+  if [[ -n "${LAWHOT_HTTP_PROXY:-}" ]]; then
+    upsert_env "${env_file}" "LAWHOT_HTTP_PROXY" "${LAWHOT_HTTP_PROXY}"
+    upsert_env "${env_file}" "LAWHOT_HTTPS_PROXY" "${LAWHOT_HTTPS_PROXY:-$LAWHOT_HTTP_PROXY}"
+    log "已写入境外抓取代理到 .env"
+  fi
+  if [[ -n "${LAWHOT_BASE_IMAGE:-}" ]]; then
+    upsert_env "${env_file}" "LAWHOT_BASE_IMAGE" "${LAWHOT_BASE_IMAGE}"
+  fi
   ln -sfn "${LAWHOT_DIR}" "${INSTALL_ROOT}/lawhot-src"
   ln -sfn "${LAWHOT_DIR}/deploy" "${INSTALL_ROOT}/deploy"
 }
@@ -171,19 +209,23 @@ export_skill_static() {
 }
 
 start_stack() {
-  log "构建并启动容器..."
+  ensure_base_image
+  # 写入最终选用的基础镜像
+  upsert_env "${LAWHOT_DIR}/deploy/.env" "LAWHOT_BASE_IMAGE" "${LAWHOT_BASE_IMAGE}"
+  log "构建并启动容器（BASE_IMAGE=${LAWHOT_BASE_IMAGE}）..."
   cd "${LAWHOT_DIR}/deploy"
-  docker compose --env-file .env up -d --build
+  docker compose --env-file .env build --pull=false --build-arg "BASE_IMAGE=${LAWHOT_BASE_IMAGE}"
+  docker compose --env-file .env up -d
   # 等待健康
-  for i in 1 2 3 4 5 6 7 8 9 10; do
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if curl -fsS "http://127.0.0.1:18080/healthz" >/tmp/lawhot-health.json 2>/dev/null; then
-      head -c 400 /tmp/lawhot-health.json; echo
+      head -c 500 /tmp/lawhot-health.json; echo
       log "容器健康检查通过"
       return
     fi
-    sleep 3
+    sleep 5
   done
-  docker compose -f "${LAWHOT_DIR}/deploy/docker-compose.yml" logs --tail=80 || true
+  docker compose -f "${LAWHOT_DIR}/deploy/docker-compose.yml" logs --tail=100 || true
   die "容器健康检查失败"
 }
 
