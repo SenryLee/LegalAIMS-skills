@@ -9,7 +9,8 @@ set -e
 export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
 export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
 export LAWHOT_BASE_IMAGE="docker.m.daocloud.io/library/python:3.12-slim"
-export LAWHOT_HTTP_PROXY="http://lawhot:19fb259141cab2ee5892f3e00bf4ec17@192.3.90.184:13128"
+# 密码见洛杉矶机：sudo cat /etc/lawhot/proxy.env
+export LAWHOT_HTTP_PROXY="http://lawhot:YOUR_PASS@192.3.90.184:13128"
 export LAWHOT_HTTPS_PROXY="$LAWHOT_HTTP_PROXY"
 
 curl -fL --connect-timeout 15 --max-time 90 \

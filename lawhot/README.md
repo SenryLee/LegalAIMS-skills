@@ -19,25 +19,12 @@
 
 DNS 已指向服务器后，用 **root** 登录 Workbench。
 
-> 国内机直连 `raw.githubusercontent.com` 经常会**卡住且无输出**（`curl -s` 静默）。请用下面「先下载再执行」：
+> 完整可复制命令见 [`deploy/FULL-DEPLOY.md`](./deploy/FULL-DEPLOY.md)（含国内 Docker 镜像 + 洛杉矶抓取代理）。
 
-```bash
-# 1) 若上一条命令还在转圈：先 Ctrl+C
-# 2) 用 jsDelivr 下载脚本（国内通常比 GitHub raw 稳）
-curl -fL --connect-timeout 10 --max-time 60 \
-  -o /tmp/lawhot-one-click.sh \
-  "https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@cursor/lawhot-sources-plan-e591/lawhot/deploy/one-click.sh"
-
-# 3) 看文件是否下载成功（应有几千字节，且首行是 #!/usr/bin/env bash）
-wc -c /tmp/lawhot-one-click.sh && head -n 2 /tmp/lawhot-one-click.sh
-
-# 4) 执行（可选：给 git 加镜像）
-export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
-export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
-bash /tmp/lawhot-one-click.sh
-```
-
-脚本会：安装 Docker（若无）→ 加 2G swap → 拉代码 → 启动容器（`127.0.0.1:18080`）→ 配置 nginx `hot.fachuiai.com` → 尝试 certbot → 触发首次抓取。
+要点：
+- 用 jsDelivr 下脚本，避免 GitHub raw 卡住
+- 基础镜像默认 `docker.m.daocloud.io/library/python:3.12-slim`（不直连 docker.io）
+- 境外 RSS 经洛杉矶 `192.3.90.184:13128` 代理
 
 部署后自检：
 
