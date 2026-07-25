@@ -9,9 +9,9 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from . import __version__, db
-from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, PUBLIC_BASE_URL
+from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, OPENAI_API_KEY, PUBLIC_BASE_URL
 from .ingest import run_ingest_once
-from .web import render_home, render_item, render_skill_index
+from .web import CAT_LABEL, render_home, render_item, render_skill_index
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("lawhot")
@@ -123,6 +123,8 @@ async def healthz() -> dict[str, Any]:
         "version": __version__,
         "stats": db.stats(),
         "proxy_configured": bool(LAWHOT_HTTP_PROXY),
+        "translate_configured": True,
+        "openai_translate": bool(OPENAI_API_KEY),
         "last_ingest_at": db.get_meta("last_ingest_at"),
         "last_ingest_stats": db.get_meta("last_ingest_stats"),
     }
@@ -311,47 +313,62 @@ async def home(request: Request) -> Any:
             "health": f"{PUBLIC_BASE_URL}/healthz",
             "stats": stats,
         }
+
+    category = request.query_params.get("category")
+    if category and category not in CAT_LABEL:
+        category = None
+
     start = window_start("7d").replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    rows = db.list_items(
+    # 计数用（各分类卡片）
+    all_rows = db.list_items(
         mode="selected",
         window_start_iso=start,
         by="timeline",
         category=None,
         q=None,
-        limit=40,
+        limit=200,
         offset=0,
     )
-    # 首页优先展示更“法律向”的分类，避免厂商通稿占满首屏
-    priority = {
-        "regulation": 0,
-        "litigation": 1,
-        "legaltech": 2,
-        "practice": 3,
-        "insight": 4,
-        "vendor": 5,
-    }
-    rows = sorted(
-        rows,
-        key=lambda r: (
-            priority.get(r["category"] or "", 9),
-            # 同分类内新收录在前（ISO 时间字符串倒序）
-            r["discovered_at"] or "",
-        ),
+    counts: dict[str, int] = {k: 0 for k in CAT_LABEL}
+    for r in all_rows:
+        c = r["category"] or "insight"
+        if c in counts:
+            counts[c] += 1
+
+    rows = db.list_items(
+        mode="selected",
+        window_start_iso=start,
+        by="timeline",
+        category=category,
+        q=None,
+        limit=60,
+        offset=0,
     )
-    # sort 稳定但 discovered_at 正向；再按分类分组并反转时间
-    buckets: dict[str, list] = {c: [] for c in priority}
-    other: list = []
-    for r in rows:
-        cat = r["category"] or "insight"
-        if cat in buckets:
-            buckets[cat].append(r)
-        else:
-            other.append(r)
-    ordered = []
-    for cat in priority:
-        ordered.extend(reversed(buckets[cat]))
-    ordered.extend(reversed(other))
-    return HTMLResponse(render_home(ordered[:30], stats))
+    # 默认流：法律科技/实务优先，监管靠后
+    priority = {
+        "legaltech": 0,
+        "practice": 1,
+        "litigation": 2,
+        "insight": 3,
+        "vendor": 4,
+        "regulation": 5,
+    }
+    rows = list(rows)
+    rows.sort(key=lambda r: r["discovered_at"] or "", reverse=True)
+    if not category:
+        rows.sort(key=lambda r: priority.get(r["category"] or "", 9))
+        # 监管在默认首页最多露出 3 条
+        kept, reg_n = [], 0
+        for r in rows:
+            if (r["category"] or "") == "regulation":
+                if reg_n >= 3:
+                    continue
+                reg_n += 1
+            kept.append(r)
+        rows = kept
+    return HTMLResponse(
+        render_home(rows[:36], stats, category=category, counts=counts)
+    )
 
 
 @app.get("/items/{item_id}")

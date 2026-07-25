@@ -127,13 +127,13 @@ sources:
     name: US Federal Register（AI 关键词）
     lang: en
     region: [us]
-    tier: P0
+    tier: P2
     channel: rss
     homepage: https://www.federalregister.gov/
     feed: https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=artificial+intelligence
     tracks: [law_x_ai]
     trust: official
-    notes: 美国联邦监管原文入口；RSS 已验证。
+    notes: 噪声大；监管只保留重点，默认不进 MVP 抓取。
     status: { reachability: ok_rss }
 
   - id: en-ftc-press
@@ -370,10 +370,13 @@ sources:
     tier: P0
     channel: web
     homepage: https://www.cac.gov.cn/
+    list_url: https://www.cac.gov.cn/wxzcfg/index.htm
+    must_title: 人工智能|生成式|深度合成|算法|大模型|智能
     feed: null
     tracks: [law_x_ai]
     trust: official
-    notes: 生成式 AI 备案、深度合成、拟人化互动等核心监管原文。
+    egress: domestic
+    notes: 生成式 AI 备案、深度合成等监管重点；列表页抓取，少而精。
     status: { reachability: ok_web }
 
   - id: zh-court
@@ -383,9 +386,12 @@ sources:
     tier: P0
     channel: web
     homepage: https://www.court.gov.cn/
+    list_url: https://www.court.gov.cn/
+    must_title: 人工智能|智慧法院|智能|信息化|数字|大数据|算法|科技法庭|在线诉讼
     feed: null
     tracks: [law_x_ai, ai_x_law]
     trust: official
+    egress: domestic
     notes: 司法 AI、典型案例、智慧法院；关键词过滤。
     status: { reachability: ok_web }
 
@@ -448,11 +454,64 @@ sources:
     tier: P0
     channel: web
     homepage: http://www.legaldaily.com.cn/
+    list_url: http://www.legaldaily.com.cn/
+    must_title: 人工智能|大模型|算法|智能|生成式|深度合成|法律科技|智慧法院|数字检察|信息化
     feed: null
     tracks: [law_x_ai, ai_x_law]
     trust: specialty_media
-    notes: 权威法治媒体；AI 司法与立法报道。
-    status: { reachability: needs_recheck }
+    egress: domestic
+    notes: 权威法治媒体；AI 司法、法律科技与立法报道。
+    status: { reachability: ok_web }
+
+  - id: zh-chinacourt-yaml
+    name: 中国法院网
+    lang: zh
+    region: [cn]
+    tier: P0
+    channel: web
+    homepage: https://www.chinacourt.org/
+    list_url: https://www.chinacourt.org/index.shtml
+    link_re: 'href=["''](https?://www\.chinacourt\.org/article/detail/\d+/[^"'']+\.shtml)["''][^>]*>([^<]{8,100})<'
+    must_title: 人工智能|智能|算法|信息化|智慧法院|数字|大数据|网络|法律科技
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: official
+    egress: domestic
+    notes: 司法信息化与智慧法院主渠道之一。
+    status: { reachability: ok_web }
+
+  - id: zh-jcrb
+    name: 正义网
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.jcrb.com/
+    list_url: https://www.jcrb.com/
+    must_title: 人工智能|智能|算法|数字检察|大数据|网络|科技|信息化|法律科技
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: specialty_media
+    egress: domestic
+    notes: 检察系统媒体；数字检察与科技办案报道。
+    status: { reachability: ok_web }
+
+  - id: zh-secrss-yaml
+    name: 安全内参
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.secrss.com/
+    list_url: https://www.secrss.com/
+    link_re: 'href=["''](https?://www\.secrss\.com/articles/\d+)["''][^>]*>([^<]{8,100})<'
+    must_title: 法律|合规|监管|诉讼|司法|律师|数据出境|个人信息|人工智能法|AI|大模型|融资
+    feed: null
+    tracks: [law_x_ai, ai_x_law]
+    trust: specialty_media
+    egress: domestic
+    notes: 安全/合规向；筛法律与 AI 交叉稿。
+    status: { reachability: ok_web }
 
   # -------------------------------------------------------------------------
   # P0 — 中文公众号（需你确认 biz / 抓取方式）
