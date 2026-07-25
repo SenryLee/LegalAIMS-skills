@@ -6,11 +6,12 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from fastapi import FastAPI, Query, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from . import __version__, db
 from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, PUBLIC_BASE_URL
 from .ingest import run_ingest_once
+from .web import render_home, render_item, render_skill_index
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("lawhot")
@@ -291,27 +292,57 @@ async def feed_xml() -> PlainTextResponse:
 
 
 @app.get("/")
-async def home() -> dict[str, Any]:
-    return {
-        "name": "LawHOT",
-        "tagline": "全球法律 AI 资讯 · AI 对法律行业的启迪",
-        "disclaimer": "资讯聚合，非法律意见。重要引用请回原文核对。",
-        "api": f"{PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=24h&limit=10",
-        "skill": f"{PUBLIC_BASE_URL}/lawhot-skill/",
-        "feed": f"{PUBLIC_BASE_URL}/feed.xml",
-        "health": f"{PUBLIC_BASE_URL}/healthz",
-        "stats": db.stats(),
-    }
+async def home(request: Request) -> Any:
+    """浏览器返回精选 HTML；显式要 JSON 时（Accept/query）返回机器发现文档。"""
+    want_json = (
+        request.query_params.get("format") == "json"
+        or "application/json" in (request.headers.get("accept") or "")
+        and "text/html" not in (request.headers.get("accept") or "")
+    )
+    stats = db.stats()
+    if want_json:
+        return {
+            "name": "LawHOT",
+            "tagline": "全球法律 AI 资讯 · AI 对法律行业的启迪",
+            "disclaimer": "资讯聚合，非法律意见。重要引用请回原文核对。",
+            "api": f"{PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=24h&limit=10",
+            "skill": f"{PUBLIC_BASE_URL}/lawhot-skill/",
+            "feed": f"{PUBLIC_BASE_URL}/feed.xml",
+            "health": f"{PUBLIC_BASE_URL}/healthz",
+            "stats": stats,
+        }
+    start = window_start("7d").replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    rows = db.list_items(
+        mode="selected",
+        window_start_iso=start,
+        by="timeline",
+        category=None,
+        q=None,
+        limit=30,
+        offset=0,
+    )
+    return HTMLResponse(render_home(rows, stats))
 
 
 @app.get("/items/{item_id}")
-async def item_page(item_id: str) -> dict[str, Any]:
-    # MVP: JSON stub page; nginx can later serve HTML.
+async def item_page(request: Request, item_id: str) -> Any:
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
     if not row:
         return problem(404, "not_found", "item not found")
-    return row_to_item(row)
+    want_json = (
+        request.query_params.get("format") == "json"
+        or "application/json" in (request.headers.get("accept") or "")
+        and "text/html" not in (request.headers.get("accept") or "")
+    )
+    if want_json:
+        return row_to_item(row)
+    return HTMLResponse(render_item(row))
+
+
+@app.get("/agent")
+async def agent_page() -> HTMLResponse:
+    return HTMLResponse(render_skill_index())
 
 
 @app.post("/admin/ingest")

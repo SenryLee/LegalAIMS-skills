@@ -211,6 +211,9 @@ export_skill_static() {
   cp "${LAWHOT_DIR}/references/api.md" "${skill_dir}/references/api.md"
   cp "${LAWHOT_DIR}/references/errors.md" "${skill_dir}/references/errors.md"
   cp "${LAWHOT_DIR}/references/sources.md" "${skill_dir}/references/sources.md"
+  if [[ -f "${LAWHOT_DIR}/lawhot-skill-index.html" ]]; then
+    cp "${LAWHOT_DIR}/lawhot-skill-index.html" "${skill_dir}/index.html"
+  fi
   log "Skill 静态文件 -> ${skill_dir}"
 }
 
