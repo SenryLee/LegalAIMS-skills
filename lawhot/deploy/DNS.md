@@ -125,9 +125,26 @@ cd /opt/lawhot && ./deploy/one-click.sh
 脚本会负责：Docker（若无则装）、拉 compose、写 `.env`、申请/挂载证书、重载 nginx、健康检查。  
 **证书**：优先用已有 nginx + certbot；若你已有通配证书也可复用。
 
-你现在可以先做、且只做这两件：
+## 7. 一键部署（DNS 已就绪后）
 
-1. DNS：`hot` → `47.119.184.45`  
-2. 安全组：放行 80/443  
+在阿里云 Workbench（root）粘贴：
 
-做完告诉我，我验收解析；中台代码与 `one-click.sh` 作为下一步交付。
+```bash
+export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
+curl -fsSL https://raw.githubusercontent.com/SenryLee/LegalAIMS-skills/${LAWHOT_REPO_BRANCH}/lawhot/deploy/one-click.sh | bash
+```
+
+部署后本机验收：
+
+```bash
+curl -s http://127.0.0.1:18080/healthz
+curl -s 'http://127.0.0.1:18080/api/v1/items?mode=selected&window=7d&limit=5'
+curl -sI https://hot.fachuiai.com/healthz
+```
+
+若 certbot 未自动成功：
+
+```bash
+apt-get install -y certbot python3-certbot-nginx
+certbot --nginx -d hot.fachuiai.com
+```
