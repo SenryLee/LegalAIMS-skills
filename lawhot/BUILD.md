@@ -74,7 +74,7 @@
 |---|---|---|
 | 运行环境 | 阿里云「法锤智能」ECS（深圳，Ubuntu 22.04，**2C2G**）+ Docker Compose；nginx 复用本机 | 详见 [`deploy/DNS.md`](./deploy/DNS.md)；内存紧，单栈部署 |
 | 数据 | MVP 可用 SQLite 或限内存 Postgres；暂缓 Redis | 2G 机器先省资源，量上来再拆 |
-| 抓取 | RSS 用标准解析；网页用站点适配器；公众号单独适配器 | 每源一个 connector，失败隔离 |
+| 抓取 | RSS / 网页 / 公众号分 connector；**境外源必须代理或海外 worker** | 阿里云大陆机默认无稳定出境，见 [`deploy/EGRESS.md`](./deploy/EGRESS.md) |
 | 任务 | cron / 队列 worker，P0 源 15–60 分钟一轮 | 官方源可更频，媒体源更慢 |
 | LLM | 你指定的 API（摘要/分类/打分） | 提示词要强调：非法律意见、数字回原文 |
 | API | 匿名只读 JSON + ETag + Problem JSON | 直接借鉴 aihot v1 字段命名 |
