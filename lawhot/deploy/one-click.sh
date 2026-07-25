@@ -33,11 +33,13 @@ need_root() {
 
 configure_docker_mirror() {
   mkdir -p /etc/docker
-  # 始终写入常用国内 mirror（不覆盖用户自定义其它字段时：若文件已存在且含 mirrors 则跳过）
+  # 重要：阿里云 Workbench 会话里不要随意 systemctl restart docker
+  # （2G 机器上重启/构建容易 OOM，表现为“突然退出登录”）
   if [[ -f /etc/docker/daemon.json ]] && grep -q registry-mirrors /etc/docker/daemon.json; then
-    log "已有 registry-mirrors，保留 /etc/docker/daemon.json"
-  else
-    cat > /etc/docker/daemon.json <<'JSON'
+    log "已有 registry-mirrors，保留 /etc/docker/daemon.json（不重启 docker）"
+    return
+  fi
+  cat > /etc/docker/daemon.json <<'JSON'
 {
   "registry-mirrors": [
     "https://docker.m.daocloud.io",
@@ -45,9 +47,7 @@ configure_docker_mirror() {
   ]
 }
 JSON
-    systemctl restart docker || true
-    log "已写入 Docker registry mirrors"
-  fi
+  log "已写入 /etc/docker/daemon.json（本次不重启 docker；我们改用完整镜像路径拉取，无需重启）"
 }
 
 ensure_base_image() {
@@ -61,6 +61,12 @@ ensure_base_image() {
   local img
   for img in "${candidates[@]}"; do
     [[ -n "${img}" ]] || continue
+    # 已有本地镜像则跳过 pull，减少 2G 机器压力
+    if docker image inspect "${img}" >/dev/null 2>&1; then
+      export LAWHOT_BASE_IMAGE="${img}"
+      log "本地已有基础镜像: ${LAWHOT_BASE_IMAGE}"
+      return 0
+    fi
     log "尝试拉取基础镜像: ${img}"
     if docker pull "${img}"; then
       export LAWHOT_BASE_IMAGE="${img}"
@@ -210,13 +216,15 @@ export_skill_static() {
 
 start_stack() {
   ensure_base_image
-  # 写入最终选用的基础镜像
   upsert_env "${LAWHOT_DIR}/deploy/.env" "LAWHOT_BASE_IMAGE" "${LAWHOT_BASE_IMAGE}"
   log "构建并启动容器（BASE_IMAGE=${LAWHOT_BASE_IMAGE}）..."
   cd "${LAWHOT_DIR}/deploy"
-  docker compose --env-file .env build --pull=false --build-arg "BASE_IMAGE=${LAWHOT_BASE_IMAGE}"
+  # 限制构建并行，降低 2G 内存 OOM 风险
+  export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
+  docker compose --env-file .env build --pull=false --build-arg "BASE_IMAGE=${LAWHOT_BASE_IMAGE}" \
+    || die "docker build 失败（若刚掉线，多半是内存不足；请用 screen 重跑并先确认 swap）"
   docker compose --env-file .env up -d
-  # 等待健康
   for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if curl -fsS "http://127.0.0.1:18080/healthz" >/tmp/lawhot-health.json 2>/dev/null; then
       head -c 500 /tmp/lawhot-health.json; echo
@@ -283,8 +291,9 @@ EOF
 
 main() {
   need_root
-  install_docker
+  # 先加 swap，再做任何重活，降低 Workbench 掉线概率
   ensure_swap
+  install_docker
   sync_repo
   prepare_env
   export_skill_static
