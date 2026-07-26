@@ -1,0 +1,35 @@
+services:
+  lawhot:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      args:
+        BASE_IMAGE: ${LAWHOT_BASE_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+    image: lawhot:0.1.0
+    container_name: lawhot
+    restart: unless-stopped
+    environment:
+      LAWHOT_PUBLIC_BASE_URL: ${LAWHOT_PUBLIC_BASE_URL:-https://hot.fachuiai.com}
+      LAWHOT_FETCH_INTERVAL_SECONDS: ${LAWHOT_FETCH_INTERVAL_SECONDS:-1800}
+      LAWHOT_ADMIN_TOKEN: ${LAWHOT_ADMIN_TOKEN:-}
+      LAWHOT_HTTP_PROXY: ${LAWHOT_HTTP_PROXY:-}
+      LAWHOT_HTTPS_PROXY: ${LAWHOT_HTTPS_PROXY:-}
+      LAWHOT_NO_PROXY: ${LAWHOT_NO_PROXY:-localhost,127.0.0.1,.cn,cac.gov.cn,court.gov.cn,gov.cn,miit.gov.cn}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    volumes:
+      - lawhot_data:/data
+    ports:
+      - "127.0.0.1:18080:8080"
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  lawhot_data:
