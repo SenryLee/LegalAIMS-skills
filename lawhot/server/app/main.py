@@ -439,12 +439,8 @@ async def admin_rebuild_edition(request: Request) -> Any:
 
 @app.post("/admin/reenrich")
 async def admin_reenrich(request: Request) -> Any:
-    """重跑摘要/译写（不扩抓取），用于修正「截断译文」类坏摘要。"""
+    """抓取 + 强制重写摘要/译写 + 重编今日刊（修正截断译文）。"""
     if not _admin_ok(request):
         return problem(401, "unauthorized", "missing or invalid admin token")
-    # 复用 ingest 后半段：enrich + rebuild
-    from .ingest import run_ingest_once
-
-    # 轻量：只 enrich 现有高分条 — 直接调完整 ingest 中的 enrich 代价可接受
     stats = await run_ingest_once()
     return {"ok": True, "stats": stats}
