@@ -9,13 +9,17 @@ from .config import PUBLIC_BASE_URL
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
+BRAND = "Legal Bulletins"
+BRAND_SUB = "法律 AI 每日读本"
+TAGLINE = "AI 驱动的法律与监管要闻，帮助法律人更快理解复杂世界。"
+
 CAT_LABEL = {
-    "regulation": "监管重点",
-    "litigation": "诉讼案例",
+    "regulation": "监管",
+    "litigation": "诉讼",
     "legaltech": "法律科技",
-    "practice": "实务·融资",
-    "insight": "行业启迪",
-    "vendor": "厂商动态",
+    "practice": "实务",
+    "insight": "启迪",
+    "vendor": "厂商",
 }
 
 CAT_BLURB = {
@@ -26,6 +30,9 @@ CAT_BLURB = {
     "insight": "方法与行业思考",
     "vendor": "影响法律业的厂商信号",
 }
+
+# 顶栏主分类（与 mockup 一致；其余仍可通过 URL 进入）
+NAV_ORDER = ("legaltech", "practice", "litigation", "insight", "vendor", "regulation")
 
 
 def _esc(s: Any) -> str:
@@ -42,7 +49,17 @@ def _bj_time(iso: str | None) -> str:
         return iso
 
 
-def layout(title: str, body: str, *, description: str = "") -> str:
+def _bj_parts(iso: str | None) -> tuple[str, str, str]:
+    if not iso:
+        return ("—", "—", "—")
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(SHANGHAI)
+        return (dt.strftime("%Y"), dt.strftime("%m"), dt.strftime("%d"))
+    except Exception:
+        return ("—", "—", "—")
+
+
+def layout(title: str, body: str, *, description: str = "", page: str = "inner") -> str:
     desc = description or "全球法律 AI 资讯 · AI 对法律行业的启迪"
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -51,263 +68,448 @@ def layout(title: str, body: str, *, description: str = "") -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{_esc(title)}</title>
   <meta name="description" content="{_esc(desc)}" />
-  <link rel="alternate" type="application/rss+xml" title="LawHOT 精选" href="{_esc(PUBLIC_BASE_URL)}/feed.xml" />
+  <link rel="alternate" type="application/rss+xml" title="{_esc(BRAND)} 精选" href="{_esc(PUBLIC_BASE_URL)}/feed.xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700&display=swap" rel="stylesheet" />
   <style>
     :root {{
-      --ink: #221c16;
-      --ink-soft: #3d342b;
-      --muted: #6d6256;
-      --paper: #f4efe4;
-      --paper-2: #ebe4d4;
-      --leaf: #fffaf0;
-      --rule: #c9bba5;
-      --rule-soft: #ddd2bf;
-      --accent: #6b2d2d;
-      --accent-2: #245c48;
-      --shadow: 0 1px 0 rgba(34,28,22,.04), 0 22px 50px rgba(55,40,20,.08);
-      --serif: "Source Serif 4", "Literata", "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
-      --sans: "Source Han Sans SC", "PingFang SC", "Noto Sans SC", sans-serif;
+      --ink: #1a1a1a;
+      --ink-soft: #3a3834;
+      --muted: #7a756c;
+      --ivory: #f7f5f0;
+      --ivory-2: #f0eee6;
+      --surface: #fffcf7;
+      --metal-1: #6f6b64;
+      --metal-2: #a8a49c;
+      --metal-3: #d8d4cc;
+      --metal-4: #f5f3ee;
+      --metal-5: #ebe7df;
+      --rule: rgba(111,107,100,.28);
+      --serif-display: "Cormorant Garamond", "Songti SC", "Noto Serif SC", serif;
+      --serif: "Newsreader", "Source Han Serif SC", "Songti SC", serif;
+      --sans: "DM Sans", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif;
     }}
     * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
     body {{
       margin: 0;
       min-height: 100vh;
       color: var(--ink);
-      font-family: var(--serif);
-      line-height: 1.8;
-      background-color: #cfc3ab;
+      font-family: var(--sans);
+      line-height: 1.65;
+      background-color: var(--ivory);
       background-image:
-        radial-gradient(ellipse at 20% 10%, rgba(255,248,230,.55) 0%, transparent 42%),
-        radial-gradient(ellipse at 80% 90%, rgba(90,70,40,.08) 0%, transparent 45%),
-        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E"),
-        linear-gradient(165deg, #e4d9c4 0%, #d2c4ab 48%, #c7b89d 100%);
+        radial-gradient(ellipse 55% 40% at 78% 18%, rgba(180,190,170,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 35% at 12% 0%, rgba(255,255,255,.7) 0%, transparent 55%),
+        linear-gradient(165deg, var(--ivory) 0%, var(--ivory-2) 55%, #e8e4da 100%);
+      -webkit-font-smoothing: antialiased;
     }}
-    a {{ color: var(--accent-2); text-decoration-thickness: 1px; text-underline-offset: 3px; }}
-    a:hover {{ color: var(--accent); }}
-    .stage {{
-      width: min(780px, calc(100% - 1.5rem));
-      margin: 1.75rem auto 3.5rem;
-      background:
-        linear-gradient(90deg, rgba(70,50,30,.12) 0, rgba 14px, transparent 36px),
-        linear-gradient(90deg, transparent calc(100% - 10px), rgba(70,50,30,.04)),
-        linear-gradient(180deg, #fffdf6 0%, var(--leaf) 8%, var(--paper) 55%, var(--paper-2) 100%);
-      border: 1px solid #b09e82;
-      border-radius: 2px 6px 6px 2px;
-      box-shadow:
-        -8px 0 0 #a89274,
-        -9px 0 0 #8f7a5c,
-        var(--shadow),
-        inset 0 0 0 1px rgba(255,250,240,.7);
-      position: relative;
-    }}
-    .stage::before {{
+    body::before {{
       content: "";
-      position: absolute; inset: 12px 14px 14px 18px;
-      border: 1px solid var(--rule-soft);
+      position: fixed;
+      inset: 0;
       pointer-events: none;
+      opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      z-index: 0;
     }}
-    .stage::after {{
+    a {{ color: var(--ink-soft); text-decoration-thickness: 1px; text-underline-offset: 3px; }}
+    a:hover {{ color: var(--ink); }}
+    .shell {{
+      position: relative;
+      z-index: 1;
+      width: min(920px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1.25rem 0 4rem;
+    }}
+    .topnav {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.35rem 0 1rem;
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, transparent, var(--metal-2) 12%, var(--metal-4) 48%, #fff 50%, var(--metal-3) 58%, var(--metal-1) 88%, transparent) 1;
+      margin-bottom: 2.5rem;
+      animation: fade-down .7s ease both;
+    }}
+    .nav-brand {{
+      font-family: var(--serif-display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      color: #5c5852;
+      background: linear-gradient(115deg, #5c5852 0%, #b8b4ac 28%, #f5f3ee 48%, #9e9a92 68%, #6f6b64 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: metal-sweep 7s ease-in-out infinite;
+    }}
+    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {{
+      .nav-brand {{ color: #3a3834; -webkit-text-fill-color: #3a3834; }}
+    }}
+    .nav-links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1.15rem;
+      font-size: 0.86rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }}
+    .nav-links a {{
+      color: var(--muted);
+      text-decoration: none;
+      position: relative;
+      padding: 0.2rem 0;
+    }}
+    .nav-links a:hover {{ color: var(--ink); }}
+    .nav-links a.active {{
+      color: var(--ink);
+    }}
+    .nav-links a.active::after {{
       content: "";
       position: absolute;
-      left: 0; top: 8%; bottom: 8%;
-      width: 3px;
-      background: linear-gradient(180deg, transparent, rgba(107,45,45,.35), transparent);
-      pointer-events: none;
+      left: 0; right: 0; bottom: -0.35rem;
+      height: 2px;
+      background: linear-gradient(90deg, var(--metal-1), var(--metal-4), #fff, var(--metal-3), var(--metal-1));
+      box-shadow: 0 0 6px rgba(255,255,255,.45);
     }}
-    .inner {{ position: relative; z-index: 1; padding: clamp(1.55rem, 4.2vw, 2.75rem) clamp(1.4rem, 4vw, 2.5rem); }}
-    .brand-row {{
-      display: flex; justify-content: space-between; align-items: baseline;
-      gap: 1rem; flex-wrap: wrap;
-      border-bottom: 2px solid var(--ink);
-      padding-bottom: 0.85rem; margin-bottom: 0.85rem;
+    .hero {{
+      position: relative;
+      padding: 1.5rem 0 3.25rem;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+      animation: fade-up .85s ease .08s both;
+    }}
+    .hero::after {{
+      content: "";
+      position: absolute;
+      right: -8%;
+      top: -10%;
+      width: min(420px, 55vw);
+      height: min(420px, 55vw);
+      background:
+        radial-gradient(ellipse at 40% 45%, rgba(90,110,80,.12) 0%, transparent 62%),
+        radial-gradient(ellipse at 60% 60%, rgba(40,50,35,.08) 0%, transparent 55%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 20%, transparent 72%);
+      mask-image: radial-gradient(ellipse at 50% 50%, #000 20%, transparent 72%);
+      pointer-events: none;
+      filter: blur(2px);
+      opacity: .9;
+    }}
+    .brand-wrap {{
+      display: inline-block;
+      margin: 0 0 0.85rem;
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,.4)) drop-shadow(0 12px 30px rgba(40,35,25,.1));
     }}
     .brand {{
       margin: 0;
-      font-size: clamp(2.3rem, 7vw, 3.4rem);
-      letter-spacing: 0.04em;
-      line-height: 1;
-      font-weight: 700;
+      font-family: var(--serif-display);
+      font-size: clamp(3.2rem, 9vw, 5.6rem);
+      font-weight: 600;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      color: #3a3834; /* fallback if clip unsupported */
+      background: linear-gradient(
+        110deg,
+        #5c5852 0%,
+        #9e9a92 14%,
+        #e8e4dc 28%,
+        #fff 36%,
+        #b8b4ac 48%,
+        #f0ece4 62%,
+        #8a8680 78%,
+        #d4d0c8 100%
+      );
+      background-size: 220% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: metal-sweep 8s ease-in-out infinite;
     }}
-    .brand em {{ font-style: normal; color: var(--accent); }}
-    .volume {{
-      font-family: var(--sans);
-      font-size: 0.78rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
+    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {{
+      .brand {{ color: #1a1a1a; -webkit-text-fill-color: #1a1a1a; }}
+    }}
+    .brand-sub {{
+      margin: 0 0 1rem;
+      font-family: var(--serif);
+      font-size: clamp(1.35rem, 3.2vw, 1.75rem);
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.02em;
     }}
     .tagline {{
-      margin: 0 0 1.25rem;
-      color: var(--ink-soft);
-      font-size: 1.05rem;
+      margin: 0 0 1.5rem;
       max-width: 34em;
-    }}
-    .cats {{
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.65rem;
-      margin: 0 0 1.6rem;
-    }}
-    @media (max-width: 720px) {{
-      .cats {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-    }}
-    .cat {{
-      display: block;
-      text-decoration: none;
-      color: inherit;
-      background:
-        linear-gradient(180deg, rgba(255,252,245,.95), rgba(244,239,228,.88));
-      border: 1px solid var(--rule);
-      padding: 0.7rem 0.75rem 0.75rem;
-      min-height: 4.6rem;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
-      transition: background .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
-    }}
-    .cat:hover {{
-      background: #fffef8;
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 14px rgba(55,40,20,.08);
-    }}
-    .cat.active {{
-      background: #fffef8;
-      border-color: var(--ink);
-      box-shadow: inset 0 -3px 0 var(--accent);
-    }}
-    @media (prefers-reduced-motion: reduce) {{
-      .cat, .cat:hover {{ transition: none; transform: none; }}
-    }}
-    .cat strong {{
-      display: block;
+      color: var(--muted);
       font-size: 1rem;
-      margin-bottom: 0.15rem;
+      line-height: 1.7;
     }}
-    .cat span {{
-      display: block;
-      font-family: var(--sans);
-      font-size: 0.78rem;
-      color: var(--muted);
-      line-height: 1.35;
+    .cta {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, var(--metal-1), var(--metal-4), #fff, var(--metal-2)) 1;
+      padding-bottom: 0.15rem;
+      transition: opacity .2s ease, letter-spacing .25s ease;
     }}
-    .cat b {{
-      font-family: var(--sans);
+    .cta:hover {{
+      opacity: .75;
+      letter-spacing: 0.02em;
+    }}
+    .metal-rule {{
+      height: 1px;
+      border: 0;
+      margin: 0 0 1.75rem;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--metal-1) 8%,
+        var(--metal-3) 28%,
+        #fff 50%,
+        var(--metal-3) 72%,
+        var(--metal-1) 92%,
+        transparent 100%
+      );
+      box-shadow: 0 0 8px rgba(255,255,255,.35);
+      animation: rule-gleam 5.5s ease-in-out infinite;
+    }}
+    .section-head {{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin: 0 0 1.25rem;
+      animation: fade-up .7s ease .16s both;
+    }}
+    .section-head h2 {{
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 1.35rem;
       font-weight: 600;
-      color: var(--accent);
-      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
     }}
-    .section-label {{
-      font-family: var(--sans);
+    .section-head h2::before {{
+      content: "";
+      width: 18px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--metal-1), var(--metal-4), #fff);
+      box-shadow: 0 0 5px rgba(255,255,255,.4);
+    }}
+    .section-meta {{
       font-size: 0.8rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
       color: var(--muted);
-      border-top: 1px solid var(--rule);
-      border-bottom: 1px solid var(--rule);
-      padding: 0.45rem 0;
-      margin: 0 0 1.1rem;
+      letter-spacing: 0.04em;
     }}
+    .feed {{ animation: fade-up .75s ease .22s both; }}
     .item {{
-      padding: 1.15rem 0 1.25rem;
-      border-bottom: 1px solid var(--rule-soft);
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 1.25rem 1.75rem;
+      padding: 1.35rem 0;
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, transparent, var(--metal-2) 10%, var(--metal-4) 45%, #fff 50%, var(--metal-3) 55%, var(--metal-1) 90%, transparent) 1;
     }}
-    .item:last-child {{ border-bottom: 0; }}
-    .item h2 {{
-      margin: 0 0 0.45rem;
-      font-size: clamp(1.2rem, 3.2vw, 1.45rem);
-      line-height: 1.35;
-      font-weight: 650;
-    }}
-    .item h2 a {{ color: inherit; text-decoration: none; }}
-    .item h2 a:hover {{ color: var(--accent); }}
-    .meta {{
-      display: flex; flex-wrap: wrap; gap: 0.35rem 0.85rem;
-      font-family: var(--sans);
-      font-size: 0.8rem;
+    .item:last-child {{ border-bottom: 0; border-image: none; }}
+    .item-date {{
+      font-size: 0.78rem;
       color: var(--muted);
-      margin-bottom: 0.5rem;
+      letter-spacing: 0.06em;
+      line-height: 1.45;
+      padding-top: 0.2rem;
     }}
-    .chip {{
-      color: var(--accent);
-      border: 1px solid var(--rule);
-      padding: 0 0.4rem;
-      background: rgba(255,250,240,.9);
+    .item-date b {{
+      display: block;
+      font-weight: 500;
+      color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+    }}
+    .item-cat {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin: 0 0 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: none;
+    }}
+    .item-cat::before {{
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, var(--metal-3) 40%, var(--metal-1));
+      box-shadow: 0 0 3px rgba(255,255,255,.5);
+    }}
+    .item h3 {{
+      margin: 0 0 0.4rem;
+      font-family: var(--serif);
+      font-size: clamp(1.15rem, 2.6vw, 1.4rem);
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+    }}
+    .item h3 a {{
+      color: inherit;
+      text-decoration: none;
+      background-image: linear-gradient(90deg, var(--ink), var(--ink));
+      background-size: 0 1px;
+      background-position: 0 100%;
+      background-repeat: no-repeat;
+      transition: background-size .25s ease, color .2s ease;
+    }}
+    .item h3 a:hover {{
+      background-size: 100% 1px;
     }}
     .summary {{
       margin: 0;
-      color: var(--ink-soft);
-      font-size: 1.02rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.65;
+      max-width: 46em;
     }}
     .orig {{
-      margin: 0.35rem 0 0;
-      font-family: var(--sans);
-      font-size: 0.82rem;
+      margin: 0.4rem 0 0;
+      font-size: 0.8rem;
       color: var(--muted);
       font-style: italic;
     }}
     .links {{
-      margin-top: 0.7rem;
-      font-family: var(--sans);
-      font-size: 0.88rem;
-      display: flex; gap: 1rem; flex-wrap: wrap;
+      margin-top: 0.75rem;
+      font-size: 0.86rem;
+      display: flex;
+      gap: 1.1rem;
+      flex-wrap: wrap;
     }}
-    footer.book-foot {{
-      margin-top: 2rem;
-      padding-top: 0.9rem;
-      border-top: 2px solid var(--ink);
-      font-family: var(--sans);
+    .links a {{
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-bottom: 1px solid var(--rule);
+    }}
+    .links a:hover {{ border-color: var(--ink); }}
+    .note {{
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 0.5rem 0 1rem;
+    }}
+    .back {{
+      display: inline-block;
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-decoration: none;
+    }}
+    .back:hover {{ color: var(--ink); }}
+    .detail-title {{
+      margin: 0 0 1rem;
+      font-family: var(--serif);
+      font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+    }}
+    .detail-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1rem;
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin: 0 0 1.25rem;
+    }}
+    .site-foot {{
+      margin-top: 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid transparent;
+      border-image: linear-gradient(90deg, transparent, var(--metal-2) 15%, var(--metal-4) 50%, var(--metal-1) 85%, transparent) 1;
       font-size: 0.82rem;
       color: var(--muted);
     }}
-    .back {{ font-family: var(--sans); display: inline-block; margin-bottom: 1rem; }}
-    .note {{
-      font-family: var(--sans);
-      font-size: 0.86rem;
-      color: var(--muted);
-      margin: 0 0 1rem;
+    .site-foot p {{ margin: 0.35rem 0; }}
+    .site-foot a {{ color: var(--ink-soft); }}
+    code {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.88em;
+      background: rgba(255,255,255,.55);
+      padding: 0.15rem 0.4rem;
+      border: 1px solid var(--rule);
+    }}
+    @keyframes metal-sweep {{
+      0%, 100% {{ background-position: 0% 50%; }}
+      50% {{ background-position: 100% 50%; }}
+    }}
+    @keyframes rule-gleam {{
+      0%, 100% {{ opacity: .75; filter: brightness(1); }}
+      50% {{ opacity: 1; filter: brightness(1.15); }}
+    }}
+    @keyframes fade-up {{
+      from {{ opacity: 0; transform: translateY(14px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    @keyframes fade-down {{
+      from {{ opacity: 0; transform: translateY(-8px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    @media (max-width: 640px) {{
+      .shell {{ width: min(100% - 1.5rem, 920px); padding-top: 0.85rem; }}
+      .item {{ grid-template-columns: 1fr; gap: 0.35rem; }}
+      .item-date {{ display: flex; gap: 0.5rem; align-items: baseline; }}
+      .item-date b {{ display: inline; }}
+      .hero {{ padding-top: 0.5rem; padding-bottom: 2.25rem; }}
+      .topnav {{ margin-bottom: 1.5rem; }}
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      html {{ scroll-behavior: auto; }}
+      .brand, .nav-brand, .metal-rule, .topnav, .hero, .section-head, .feed {{
+        animation: none !important;
+      }}
+      .brand, .nav-brand {{ background-position: 40% 50%; }}
     }}
   </style>
 </head>
-<body>
-  <div class="stage"><div class="inner">
+<body data-page="{_esc(page)}">
+  <div class="shell">
     {body}
-    <footer class="book-foot">
-      <p>LawHOT · 法锤法律 AI 读本。资讯聚合，非法律意见；重要引用请回原文核对。</p>
+    <footer class="site-foot">
+      <p>{_esc(BRAND)} · {_esc(BRAND_SUB)}。资讯聚合，非法律意见；重要引用请回原文核对。</p>
       <p>
         <a href="{_esc(PUBLIC_BASE_URL)}/feed.xml">RSS</a> ·
         <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md">Agent Skill</a> ·
         <a href="{_esc(PUBLIC_BASE_URL)}/api/v1/items?mode=selected&amp;window=24h&amp;limit=10">JSON API</a>
       </p>
     </footer>
-  </div></div>
+  </div>
 </body>
 </html>"""
 
 
-def _cat_cards(active: str | None, counts: dict[str, int]) -> str:
-    cards = []
-    # 全部
-    total = sum(counts.values())
-    all_active = " active" if not active else ""
-    cards.append(
-        f'<a class="cat{all_active}" href="{_esc(PUBLIC_BASE_URL)}/">'
-        f"<strong>全部精选</strong><span>按阅读优先级编排</span>"
-        f"<b>{total} 篇</b></a>"
-    )
-    # 展示顺序：科技/融资优先，监管靠后
-    order = ("legaltech", "practice", "litigation", "insight", "vendor", "regulation")
-    for key in order:
-        cls = " active" if active == key else ""
-        n = counts.get(key, 0)
-        cards.append(
-            f'<a class="cat{cls}" href="{_esc(PUBLIC_BASE_URL)}/?category={_esc(key)}">'
-            f"<strong>{_esc(CAT_LABEL.get(key, key))}</strong>"
-            f"<span>{_esc(CAT_BLURB.get(key, ''))}</span>"
-            f"<b>{n} 篇</b></a>"
+def _nav(active: str | None) -> str:
+    links = [
+        f'<a class="{"active" if not active else ""}" href="{_esc(PUBLIC_BASE_URL)}/">精选</a>'
+    ]
+    for key in NAV_ORDER:
+        cls = "active" if active == key else ""
+        links.append(
+            f'<a class="{cls}" href="{_esc(PUBLIC_BASE_URL)}/?category={_esc(key)}">'
+            f"{_esc(CAT_LABEL.get(key, key))}</a>"
         )
-    return f'<div class="cats" aria-label="分类导航">{"".join(cards)}</div>'
+    return f"""
+<header class="topnav">
+  <a class="nav-brand" href="{_esc(PUBLIC_BASE_URL)}/">{_esc(BRAND)}</a>
+  <nav class="nav-links" aria-label="分类导航">{"".join(links)}</nav>
+</header>"""
 
 
 def render_home(
@@ -317,11 +519,11 @@ def render_home(
     category: str | None = None,
     counts: dict[str, int] | None = None,
 ) -> str:
-    counts = counts or {}
+    del counts  # 顶栏不再展示篇数卡片，保留参数兼容 main.py
     cards = []
     for r in items:
         cat = CAT_LABEL.get(r["category"] or "", r["category"] or "未分类")
-        lawhot = f"{PUBLIC_BASE_URL}/items/{r['id']}"
+        detail = f"{PUBLIC_BASE_URL}/items/{r['id']}"
         original = r["original_url"] or "#"
         orig_title = r["original_title"] or ""
         show_orig = bool(
@@ -332,38 +534,46 @@ def render_home(
         orig_block = (
             f'<p class="orig">原文标题：{_esc(orig_title)}</p>' if show_orig else ""
         )
+        y, m, d = _bj_parts(r["published_at"] or r["discovered_at"])
         cards.append(
             f"""
 <article class="item">
-  <h2><a href="{_esc(lawhot)}">{_esc(r['title'])}</a></h2>
-  <div class="meta">
-    <span class="chip">{_esc(cat)}</span>
-    <span>{_esc(r['source_name'])}</span>
-    <span>{_esc(_bj_time(r['published_at'] or r['discovered_at']))}</span>
-  </div>
-  <p class="summary">{_esc(r['summary'] or '暂无摘要')}</p>
-  {orig_block}
-  <div class="links">
-    <a href="{_esc(lawhot)}">读本页</a>
-    <a href="{_esc(original)}" rel="noopener noreferrer" target="_blank">原文链接</a>
+  <div class="item-date"><b>{_esc(y)} / {_esc(m)} / {_esc(d)}</b></div>
+  <div>
+    <div class="item-cat">{_esc(cat)}</div>
+    <h3><a href="{_esc(detail)}">{_esc(r['title'])}</a></h3>
+    <p class="summary">{_esc(r['summary'] or '暂无摘要')}</p>
+    {orig_block}
+    <div class="links">
+      <a href="{_esc(detail)}">读本页</a>
+      <a href="{_esc(original)}" rel="noopener noreferrer" target="_blank">原文链接</a>
+    </div>
   </div>
 </article>"""
         )
     if not cards:
         cards.append('<p class="note">此分类暂无条目。可切换其他分类，或稍后再来。</p>')
 
-    active_label = CAT_LABEL.get(category or "", "全部精选")
+    active_label = CAT_LABEL.get(category or "", "精选")
+    selected = int(stats.get("selected") or 0)
     body = f"""
-<div class="brand-row">
-  <h1 class="brand">Law<em>HOT</em></h1>
-  <div class="volume">Legal AI Reader · 法锤读本</div>
+{_nav(category)}
+<section class="hero" aria-label="品牌">
+  <div class="brand-wrap"><h1 class="brand">{_esc(BRAND)}</h1></div>
+  <p class="brand-sub">{_esc(BRAND_SUB)}</p>
+  <p class="tagline">{_esc(TAGLINE)}</p>
+  <a class="cta" href="#feed">开始阅读 →</a>
+</section>
+<hr class="metal-rule" />
+<div class="section-head" id="feed">
+  <h2>今日精选</h2>
+  <div class="section-meta">{_esc(active_label)} · 库内 {selected} 条</div>
 </div>
-<p class="tagline">一本面向律师、法务与合规同学的法律 AI 读本：偏重法律科技、融资与实务启迪；监管只留重点。</p>
-{_cat_cards(category, counts)}
-<div class="section-label">正在阅读 · { _esc(active_label) } · 库内 {int(stats.get('selected') or 0)} 条精选</div>
+<div class="feed">
 {''.join(cards)}
+</div>
 """
-    return layout("LawHOT · 法律 AI 读本", body)
+    return layout(f"{BRAND} · {BRAND_SUB}", body, page="home")
 
 
 def _mostly_cjk(text: str) -> bool:
@@ -384,40 +594,49 @@ def render_item(row: Any) -> str:
         f'<p class="orig">原文标题：{_esc(orig_title)}</p>' if show_orig else ""
     )
     body = f"""
-<p class="back"><a href="{_esc(PUBLIC_BASE_URL)}/">← 返回读本目录</a></p>
-<div class="brand-row">
-  <h1 class="brand" style="font-size:clamp(1.5rem,4vw,2.1rem)">{_esc(row['title'])}</h1>
-</div>
-<div class="meta" style="margin:0.2rem 0 1rem">
-  <span class="chip">{_esc(cat)}</span>
-  <span>{_esc(row['source_name'])}</span>
-  <span>发布 {_esc(_bj_time(row['published_at']))}</span>
-  <span>收录 {_esc(_bj_time(row['discovered_at']))}</span>
-</div>
-<p class="summary">{_esc(row['summary'] or '暂无摘要；请阅读原文。')}</p>
-{orig_block}
-<div class="links">
-  <a href="{_esc(original)}" rel="noopener noreferrer" target="_blank">打开原文</a>
-</div>
-<p class="note">本页为中文读本摘要，不构成法律意见。条文、判决与监管口径以原文为准。</p>
+{_nav(row["category"])}
+<p class="back"><a href="{_esc(PUBLIC_BASE_URL)}/">← 返回精选</a></p>
+<hr class="metal-rule" />
+<article>
+  <div class="item-cat">{_esc(cat)}</div>
+  <h1 class="detail-title">{_esc(row['title'])}</h1>
+  <div class="detail-meta">
+    <span>{_esc(row['source_name'])}</span>
+    <span>发布 {_esc(_bj_time(row['published_at']))}</span>
+    <span>收录 {_esc(_bj_time(row['discovered_at']))}</span>
+  </div>
+  <p class="summary" style="color:var(--ink-soft);font-size:1.05rem">{_esc(row['summary'] or '暂无摘要；请阅读原文。')}</p>
+  {orig_block}
+  <div class="links">
+    <a href="{_esc(original)}" rel="noopener noreferrer" target="_blank">打开原文</a>
+  </div>
+  <p class="note">本页为中文读本摘要，不构成法律意见。条文、判决与监管口径以原文为准。</p>
+</article>
 """
-    return layout(f"{row['title']} · LawHOT", body, description=(row["summary"] or "")[:160])
+    return layout(
+        f"{row['title']} · {BRAND}",
+        body,
+        description=(row["summary"] or "")[:160],
+        page="item",
+    )
 
 
 def render_skill_index() -> str:
     body = f"""
-<div class="brand-row">
-  <h1 class="brand">Law<em>HOT</em> Skill</h1>
-  <div class="volume">For Agents</div>
-</div>
-<p class="tagline">给 Agent 安装的说明书。人类读者请先回<a href="{_esc(PUBLIC_BASE_URL)}/">读本首页</a>。</p>
-<article class="item">
-  <p class="summary">把下面的地址发给 Cursor / Claude Code / Codex 等支持 Agent Skills 的工具：</p>
+{_nav(None)}
+<section class="hero">
+  <div class="brand-wrap"><h1 class="brand" style="font-size:clamp(2.4rem,7vw,3.8rem)">{_esc(BRAND)}</h1></div>
+  <p class="brand-sub">Agent Skill</p>
+  <p class="tagline">给 Agent 安装的说明书。人类读者请先回<a href="{_esc(PUBLIC_BASE_URL)}/">精选首页</a>。</p>
+</section>
+<hr class="metal-rule" />
+<article class="item" style="display:block;border:0">
+  <p class="summary" style="color:var(--ink-soft)">把下面的地址发给 Cursor / Claude Code / Codex 等支持 Agent Skills 的工具：</p>
   <p><code>{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md</code></p>
   <div class="links">
     <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md">打开 SKILL.md</a>
-    <a href="{_esc(PUBLIC_BASE_URL)}/">返回读本</a>
+    <a href="{_esc(PUBLIC_BASE_URL)}/">返回精选</a>
   </div>
 </article>
 """
-    return layout("LawHOT Skill", body)
+    return layout(f"{BRAND} Skill", body, page="skill")

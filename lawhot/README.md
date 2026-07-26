@@ -1,6 +1,7 @@
-# LawHOT（法锤法律 AI 资讯）
+# Legal Bulletins（原 LawHOT / 法锤法律 AI 资讯）
 
 以**全球法律 AI 资讯**与 **AI 对法律行业的启迪**为核心的 Agent Skill + 内容中台 MVP。  
+对外品牌：**Legal Bulletins**（法律 AI 每日读本）；仓库与部署目录暂仍用 `lawhot/`。  
 策略：抄 [aihot](../aihot/) 的骨架（Skill + 匿名 API + 精选/日报），换法律向信源与分类。
 
 公网入口（部署后）：`https://hot.fachuiai.com`

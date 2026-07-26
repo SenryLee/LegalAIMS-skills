@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger("lawhot")
 
 app = FastAPI(
-    title="LawHOT Public API",
+    title="Legal Bulletins Public API",
     version=__version__,
     description="Legal AI news aggregation — anonymous read-only v1",
 )
@@ -85,7 +85,7 @@ def row_to_item(row: Any) -> dict[str, Any]:
         "score": row["score"],
         "selected": bool(row["selected"]),
         "attribution": {
-            "name": "LawHOT",
+            "name": "Legal Bulletins",
             "url": PUBLIC_BASE_URL,
         },
     }
@@ -176,7 +176,7 @@ async def items(
             "hasMore": has_more,
             "nextCursor": encode_cursor(offset + limit) if has_more else None,
         },
-        "attribution": {"name": "LawHOT", "url": PUBLIC_BASE_URL},
+        "attribution": {"name": "Legal Bulletins", "url": PUBLIC_BASE_URL},
     }
     etag = 'W/"items-%s-%s-%s"' % (mode, window, offset + len(page_rows))
     if request.headers.get("if-none-match") == etag:
@@ -284,7 +284,7 @@ async def feed_xml() -> PlainTextResponse:
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<rss version="2.0"><channel>'
-        "<title>LawHOT 精选</title>"
+        "<title>Legal Bulletins 精选</title>"
         f"<link>{PUBLIC_BASE_URL}</link>"
         "<description>法律 AI 资讯精选（非法律意见）</description>"
         + "".join(items_xml)
@@ -304,8 +304,8 @@ async def home(request: Request) -> Any:
     stats = db.stats()
     if want_json:
         return {
-            "name": "LawHOT",
-            "tagline": "全球法律 AI 资讯 · AI 对法律行业的启迪",
+            "name": "Legal Bulletins",
+            "tagline": "法律 AI 每日读本 · AI 驱动的法律与监管要闻",
             "disclaimer": "资讯聚合，非法律意见。重要引用请回原文核对。",
             "api": f"{PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=24h&limit=10",
             "skill": f"{PUBLIC_BASE_URL}/lawhot-skill/",

@@ -3,7 +3,7 @@
 在阿里云 Workbench：
 
 ```bash
-export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
+export LAWHOT_REPO_BRANCH=cursor/legal-bulletins-redesign-0b36
 export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
 
 cd /opt/lawhot/repo
@@ -30,7 +30,7 @@ curl -s https://hot.fachuiai.com/healthz
 
 ## 本版新增能力
 
-1. **纸质读本 UI**：首页像一本打开的书；顶部有分类卡片可筛选。
+1. **Legal Bulletins UI**：方向 A（Anthropic 编辑感）+ 金属/镜面质感；品牌已更名为 Legal Bulletins；顶栏文字分类导航，去掉书本拟物与分类卡片。
 2. **英文译中**：展示中文标题/摘要，保留「原文标题」与「原文链接」。
    - 优先用 `OPENAI_API_KEY`（可用 DeepSeek：`OPENAI_BASE_URL=https://api.deepseek.com`）。
    - 未配置 Key 时走 Google 翻译回退（境外需已配 `LAWHOT_HTTP_PROXY`）。
@@ -55,4 +55,4 @@ docker compose --env-file .env up -d
 curl -s -X POST -H "x-admin-token: $LAWHOT_ADMIN_TOKEN" https://hot.fachuiai.com/admin/ingest
 ```
 
-浏览器打开 https://hot.fachuiai.com/ 应看到纸质读本首页、顶部分类卡片，英文条目为中文标题并带原文链接。
+浏览器打开 https://hot.fachuiai.com/ 应看到 Legal Bulletins 暖白编辑风首页、金属质感品牌字与细分割线，英文条目为中文标题并带原文链接。
