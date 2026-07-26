@@ -53,7 +53,16 @@ curl -sS https://hot.fachuiai.com/healthz
 
 说明：升级后若未跑 ingest，会出现「今日读本为空」。新版本启动时会自动尝试重建；仍空时执行上面的 `rebuild-edition` 或完整 `ingest`。
 
-验收：首页应显示「今日读本 · 日期 · 中文 N / 英文 M」；条目有可读摘要；英文条目标题为中文并保留原文链接。
+验收：
+- 首页品牌为 **Legal Bulletins**（象牙色编辑风，非旧 LawHOT 书页皮）
+- 「今日读本」有中文 N / 英文 M；摘要是 2～4 句概括，不是开篇截断译文
+- 英文条有中文标题 + 原文标题/链接
+
+若摘要仍像半截翻译，确认 `.env` 已配 DeepSeek 后执行：
+
+```bash
+curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" https://hot.fachuiai.com/admin/reenrich
+```
 
 ## 本版刊发规则
 
