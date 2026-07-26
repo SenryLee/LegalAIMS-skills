@@ -111,6 +111,8 @@ def edition_rows(
     if window == "24h":
         date = today_shanghai()
         payload = db.get_edition(date)
+        if not payload or not (payload.get("item_ids") or []):
+            payload = ensure_today_edition() or payload
         if not payload:
             latest = db.latest_edition_date()
             payload = db.get_edition(latest) if latest else None
