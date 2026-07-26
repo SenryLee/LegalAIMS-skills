@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from . import __version__, db
 from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, OPENAI_API_KEY, PUBLIC_BASE_URL
-from .edition import today_shanghai
+from .edition import ensure_today_edition, rebuild_edition_for_date, today_shanghai
 from .ingest import run_ingest_once
 from .web import CAT_LABEL, render_home, render_item, render_skill_index
 
@@ -133,6 +133,11 @@ def edition_rows(
 @app.on_event("startup")
 async def on_startup() -> None:
     db.init_db()
+    # 升级后若尚未跑 ingest，先用库内候选撑起今日刊，避免首页空白
+    try:
+        ensure_today_edition()
+    except Exception:
+        logger.exception("startup edition rebuild failed")
     global _ingest_task
     _ingest_task = asyncio.create_task(_ingest_loop())
 
@@ -352,6 +357,9 @@ async def home(request: Request) -> Any:
         category = None
     date = request.query_params.get("date") or today_shanghai()
     payload = db.get_edition(date)
+    if not payload or not (payload.get("item_ids") or []):
+        payload = ensure_today_edition() or payload
+        date = (payload or {}).get("date") or date
     if not payload:
         latest = db.latest_edition_date()
         date = latest or date
@@ -404,11 +412,24 @@ async def agent_page() -> HTMLResponse:
     return HTMLResponse(render_skill_index())
 
 
-@app.post("/admin/ingest")
-async def admin_ingest(request: Request) -> Any:
+def _admin_ok(request: Request) -> bool:
     token = request.headers.get("x-admin-token") or request.query_params.get("token")
     expected = __import__("os").environ.get("LAWHOT_ADMIN_TOKEN", "")
-    if not expected or token != expected:
+    return bool(expected) and token == expected
+
+
+@app.post("/admin/ingest")
+async def admin_ingest(request: Request) -> Any:
+    if not _admin_ok(request):
         return problem(401, "unauthorized", "missing or invalid admin token")
     stats = await run_ingest_once()
     return {"ok": True, "stats": stats}
+
+
+@app.post("/admin/rebuild-edition")
+async def admin_rebuild_edition(request: Request) -> Any:
+    """不重新抓取，仅用库内候选重编今日刊（升级后救急）。"""
+    if not _admin_ok(request):
+        return problem(401, "unauthorized", "missing or invalid admin token")
+    payload = rebuild_edition_for_date(today_shanghai())
+    return {"ok": True, "edition": payload.get("counts"), "date": payload.get("date")}

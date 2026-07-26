@@ -134,7 +134,9 @@ def _norm_title(title: str) -> str:
     return t[:28]
 
 
-def pick_edition_rows(candidates: list[Any]) -> list[Any]:
+def pick_edition_rows(
+    candidates: list[Any], *, require_summary: bool = True
+) -> list[Any]:
     ranked = sorted(candidates, key=edition_score, reverse=True)
     picked: list[Any] = []
     cn_n = en_n = reg_n = 0
@@ -142,7 +144,9 @@ def pick_edition_rows(candidates: list[Any]) -> list[Any]:
     seen_titles: set[str] = set()
 
     for row in ranked:
-        if not summary_ok(row["summary"]):
+        if require_summary and not summary_ok(row["summary"]):
+            continue
+        if not (row["title"] or "").strip():
             continue
         sid = row["source_id"] or ""
         cat = row["category"] or ""
@@ -225,12 +229,10 @@ def build_edition_payload(date: str, rows: list[Any]) -> dict[str, Any]:
 
 
 def rebuild_edition_for_date(date: str | None = None) -> dict[str, Any]:
-    """从近 36 小时候选中重编指定自然日（上海）刊发名单。"""
+    """从近 7 日候选中重编指定自然日（上海）刊发名单。"""
     date = date or today_shanghai()
-    # 候选窗：刊日前一天 00:00 上海 → 刊日结束（用 UTC 近似 36h）
-    day = datetime.fromisoformat(date).replace(tzinfo=SHANGHAI)
-    start = (day - timedelta(hours=12)).astimezone(timezone.utc)
-    start_iso = start.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    start = (datetime.now(timezone.utc) - timedelta(days=7)).replace(microsecond=0)
+    start_iso = start.isoformat().replace("+00:00", "Z")
 
     candidates = db.list_items(
         mode="all",
@@ -238,19 +240,22 @@ def rebuild_edition_for_date(date: str | None = None) -> dict[str, Any]:
         by="timeline",
         category=None,
         q=None,
-        limit=200,
+        limit=300,
         offset=0,
     )
-    # 只从已过初筛的条目里挑（selected 或高分）
     pool = [r for r in candidates if (r["selected"] or (r["score"] or 0) >= 66)]
     if not pool:
         pool = list(candidates)
 
-    picked = pick_edition_rows(pool)
+    picked = pick_edition_rows(pool, require_summary=True)
+    # 冷启动：摘要尚未润色时，允许无摘要先出刊，避免首页空白
+    if not picked:
+        picked = pick_edition_rows(pool, require_summary=False)
+        logger.warning("edition %s: fallback without summary gate, n=%s", date, len(picked))
+
     payload = build_edition_payload(date, picked)
     db.save_edition(date, payload)
     db.sync_selected_from_editions(days=7)
-    # 同步旧 daily 接口，便于 Skill「日报」意图
     db.save_daily(date, payload)
     logger.info(
         "edition %s: total=%s zh=%s en=%s",
@@ -260,3 +265,16 @@ def rebuild_edition_for_date(date: str | None = None) -> dict[str, Any]:
         payload["counts"]["en"],
     )
     return payload
+
+
+def ensure_today_edition() -> dict[str, Any] | None:
+    """若今日刊不存在或为空，立即从库内重建。"""
+    date = today_shanghai()
+    payload = db.get_edition(date)
+    if payload and (payload.get("item_ids") or payload.get("counts", {}).get("total")):
+        return payload
+    try:
+        return rebuild_edition_for_date(date)
+    except Exception:
+        logger.exception("ensure_today_edition failed")
+        return db.get_edition(date)
