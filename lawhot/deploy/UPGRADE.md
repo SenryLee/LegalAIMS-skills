@@ -45,8 +45,13 @@ docker compose --env-file .env up -d
 
 # 抓取 + 摘要/翻译 + 生成「今日读本」（中≤10 / 英≤5）
 curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" https://hot.fachuiai.com/admin/ingest
+
+# 若只想先恢复首页、暂不重抓：用库内候选重编今日刊
+curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" https://hot.fachuiai.com/admin/rebuild-edition
 curl -sS https://hot.fachuiai.com/healthz
 ```
+
+说明：升级后若未跑 ingest，会出现「今日读本为空」。新版本启动时会自动尝试重建；仍空时执行上面的 `rebuild-edition` 或完整 `ingest`。
 
 验收：首页应显示「今日读本 · 日期 · 中文 N / 英文 M」；条目有可读摘要；英文条目标题为中文并保留原文链接。
 
