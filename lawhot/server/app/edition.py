@@ -215,7 +215,7 @@ def build_edition_payload(date: str, rows: list[Any]) -> dict[str, Any]:
         )
     return {
         "date": date,
-        "title": f"法律 AI 每日读本 {date}",
+        "title": f"Legal Bulletins 每日读本 {date}",
         "lead": (
             f"本日刊发 {len(rows)} 条（中文 {cn} / 英文 {en}，上限 10+5；"
             "监管最多 1 条，宁缺毋滥）。偏重法律科技、融资与实务。"

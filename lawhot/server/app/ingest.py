@@ -24,7 +24,7 @@ from .config import (
     source_needs_proxy,
 )
 from .edition import rebuild_edition_for_date, today_shanghai
-from .enrich import enrich_item, make_api_client, weak_summary
+from .enrich import bad_summary, enrich_item, make_api_client
 from .translate import looks_chinese, needs_translation
 from .web_cn import BUILTIN_CN_LISTS, fetch_cn_list
 
@@ -192,17 +192,25 @@ async def _enrich_candidates(
         limit=120,
         offset=0,
     )
-    pool = [
-        r
-        for r in rows
-        if (r["selected"] or (r["score"] or 0) >= 68)
-        and (
-            weak_summary(r["summary"])
-            or needs_translation(r["title"] or "", r["summary"], r["lang"])
+    pool = []
+    for r in rows:
+        if not (r["selected"] or (r["score"] or 0) >= 68):
+            continue
+        try:
+            import json as _json
+
+            raw = _json.loads(r["raw_json"] or "{}") if isinstance(r["raw_json"], str) else (r["raw_json"] or {})
+        except Exception:
+            raw = {}
+        need = (
+            bad_summary(r["summary"])
+            or not raw.get("summarized")
+            or needs_translation(r["title"] or "", None, r["lang"])
         )
-    ]
+        if need:
+            pool.append(r)
     pool.sort(key=lambda r: float(r["score"] or 0), reverse=True)
-    pool = pool[:36]
+    pool = pool[:40]
 
     enriched = translated = 0
     for r in pool:
@@ -217,15 +225,16 @@ async def _enrich_candidates(
             item["raw_json"] = {}
 
         before_title = item.get("title") or ""
-        # 中文条目直连抓正文；英文走代理
         fetch_client = direct_client
         if (item.get("lang") or "") != "zh" and proxy_client is not None:
             fetch_client = proxy_client
 
-        item = await enrich_item(item, fetch_client=fetch_client, api_client=api_client)
+        item = await enrich_item(
+            item, fetch_client=fetch_client, api_client=api_client, force=True
+        )
         if item.get("title") != before_title and looks_chinese(item.get("title") or ""):
             translated += 1
-        if not weak_summary(item.get("summary")):
+        if not bad_summary(item.get("summary")):
             enriched += 1
         db.upsert_item(item)
     return {"enriched": enriched, "translated": translated, "enrich_pool": len(pool)}
