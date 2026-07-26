@@ -50,6 +50,12 @@ def init_db() -> None:
               created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS editions (
+              date TEXT PRIMARY KEY,
+              payload_json TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS meta (
               key TEXT PRIMARY KEY,
               value TEXT NOT NULL
@@ -208,6 +214,72 @@ def latest_daily_date() -> str | None:
     with connect() as conn:
         row = conn.execute("SELECT date FROM dailies ORDER BY date DESC LIMIT 1").fetchone()
         return row["date"] if row else None
+
+
+def save_edition(date: str, payload: dict[str, Any]) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO editions(date, payload_json, created_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET payload_json=excluded.payload_json,
+              created_at=excluded.created_at
+            """,
+            (date, json.dumps(payload, ensure_ascii=False), _utc_now()),
+        )
+
+
+def get_edition(date: str) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT payload_json FROM editions WHERE date = ?", (date,)
+        ).fetchone()
+        if not row:
+            return None
+        return json.loads(row["payload_json"])
+
+
+def latest_edition_date() -> str | None:
+    with connect() as conn:
+        row = conn.execute("SELECT date FROM editions ORDER BY date DESC LIMIT 1").fetchone()
+        return row["date"] if row else None
+
+
+def list_edition_dates(limit: int = 7) -> list[str]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT date FROM editions ORDER BY date DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [r["date"] for r in rows]
+
+
+def get_items_by_ids(ids: list[str]) -> list[sqlite3.Row]:
+    if not ids:
+        return []
+    placeholders = ",".join("?" for _ in ids)
+    with connect() as conn:
+        rows = list(
+            conn.execute(f"SELECT * FROM items WHERE id IN ({placeholders})", ids)
+        )
+    by_id = {r["id"]: r for r in rows}
+    return [by_id[i] for i in ids if i in by_id]
+
+
+def sync_selected_from_editions(days: int = 7) -> None:
+    """精选 = 近 N 日刊发条目，供 API mode=selected 与首页一致。"""
+    dates = list_edition_dates(limit=days)
+    ids: list[str] = []
+    for d in dates:
+        payload = get_edition(d) or {}
+        ids.extend(payload.get("item_ids") or [])
+    uniq = list(dict.fromkeys(ids))
+    with connect() as conn:
+        conn.execute("UPDATE items SET selected = 0")
+        if uniq:
+            placeholders = ",".join("?" for _ in uniq)
+            conn.execute(
+                f"UPDATE items SET selected = 1 WHERE id IN ({placeholders})", uniq
+            )
 
 
 def set_meta(key: str, value: str) -> None:

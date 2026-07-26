@@ -363,43 +363,75 @@ sources:
   # -------------------------------------------------------------------------
   # P0 — 中文官方 / 权威媒体（网页为主）
   # -------------------------------------------------------------------------
-  - id: zh-cac
-    name: 国家网信办 / 中国网信网
+  - id: zh-lawyeah
+    name: 律页科技
     lang: zh
     region: [cn]
     tier: P0
     channel: web
+    homepage: https://www.lawyeah.cn/article
+    list_url: https://www.lawyeah.cn/article
+    must_title: AI|人工智能|法律|律师|律所|大模型|智能|合同|科技
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    egress: domestic
+    notes: 中文法律科技媒体；产品与行业动态。
+    status: { reachability: ok_web }
+
+  - id: zh-autopilot-law
+    name: 智律云博客
+    lang: zh
+    region: [cn]
+    tier: P0
+    channel: web
+    homepage: https://autopilot.law/blog
+    list_url: https://autopilot.law/blog
+    must_title: AI|法律|律师|Harvey|Legora|合同|律所|大模型|智能
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    egress: domestic
+    notes: 法律 AI 洞察与全球 LegalTech 评测向。
+    status: { reachability: ok_web }
+
+  - id: zh-cac
+    name: 国家网信办 / 中国网信网
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
     homepage: https://www.cac.gov.cn/
     list_url: https://www.cac.gov.cn/wxzcfg/index.htm
-    must_title: 人工智能|生成式|深度合成|算法|大模型|智能
+    must_title: 生成式人工智能|深度合成|人工智能.*办法
     feed: null
     tracks: [law_x_ai]
     trust: official
     egress: domestic
-    notes: 生成式 AI 备案、深度合成等监管重点；列表页抓取，少而精。
+    notes: 监管重点源；刊发层每日至多 1 条。
     status: { reachability: ok_web }
 
   - id: zh-court
     name: 最高人民法院
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P1
     channel: web
     homepage: https://www.court.gov.cn/
     list_url: https://www.court.gov.cn/
-    must_title: 人工智能|智慧法院|智能|信息化|数字|大数据|算法|科技法庭|在线诉讼
+    must_title: 法律科技|法律大模型|人工智能.*审判|智能辅助办案
     feed: null
-    tracks: [law_x_ai, ai_x_law]
+    tracks: [ai_x_law]
     trust: official
     egress: domestic
-    notes: 司法 AI、典型案例、智慧法院；关键词过滤。
+    notes: 政务降权；仅收法律科技向稿。
     status: { reachability: ok_web }
 
   - id: zh-miit
     name: 工业和信息化部
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.miit.gov.cn/
     feed: null
@@ -412,7 +444,7 @@ sources:
     name: 中国人大网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.npc.gov.cn/
     feed: null
@@ -425,7 +457,7 @@ sources:
     name: 司法部
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.moj.gov.cn/
     feed: null
@@ -438,7 +470,7 @@ sources:
     name: 中国政府网（政策库）
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.gov.cn/
     feed: null
@@ -451,7 +483,7 @@ sources:
     name: 法治日报 / 法制网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P1
     channel: web
     homepage: http://www.legaldaily.com.cn/
     list_url: http://www.legaldaily.com.cn/
@@ -467,7 +499,7 @@ sources:
     name: 中国法院网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P1
     channel: web
     homepage: https://www.chinacourt.org/
     list_url: https://www.chinacourt.org/index.shtml

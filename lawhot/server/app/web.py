@@ -316,8 +316,11 @@ def render_home(
     *,
     category: str | None = None,
     counts: dict[str, int] | None = None,
+    edition: dict[str, Any] | None = None,
 ) -> str:
     counts = counts or {}
+    edition = edition or {}
+    ed_counts = edition.get("counts") or {}
     cards = []
     for r in items:
         cat = CAT_LABEL.get(r["category"] or "", r["category"] or "未分类")
@@ -352,18 +355,25 @@ def render_home(
     if not cards:
         cards.append('<p class="note">此分类暂无条目。可切换其他分类，或稍后再来。</p>')
 
-    active_label = CAT_LABEL.get(category or "", "全部精选")
+    active_label = CAT_LABEL.get(category or "", "今日读本")
+    ed_date = edition.get("date") or ""
+    zh_n = int(ed_counts.get("zh") or 0)
+    en_n = int(ed_counts.get("en") or 0)
+    total_n = int(ed_counts.get("total") or len(items))
+    lead = edition.get("lead") or (
+        "每日固定刊：中文最多 10、英文最多 5；监管至多 1 条。偏重法律科技与实务。"
+    )
     body = f"""
 <div class="brand-row">
   <h1 class="brand">Law<em>HOT</em></h1>
   <div class="volume">Legal AI Reader · 法锤读本</div>
 </div>
-<p class="tagline">一本面向律师、法务与合规同学的法律 AI 读本：偏重法律科技、融资与实务启迪；监管只留重点。</p>
+<p class="tagline">{_esc(lead)}</p>
 {_cat_cards(category, counts)}
-<div class="section-label">正在阅读 · { _esc(active_label) } · 库内 {int(stats.get('selected') or 0)} 条精选</div>
+<div class="section-label">今日读本 · {_esc(ed_date)} · {_esc(active_label)} · 中文 {zh_n} / 英文 {en_n} · 共 {total_n} 篇</div>
 {''.join(cards)}
 """
-    return layout("LawHOT · 法律 AI 读本", body)
+    return layout("LawHOT · 法律 AI 每日读本", body)
 
 
 def _mostly_cjk(text: str) -> bool:
