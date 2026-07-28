@@ -1,11 +1,17 @@
-# LawHOT 信源注册表 v0.1
+# LawHOT 信源注册表 v0.2
 # 用途：内容中台抓取配置的人工底稿；字段可直接映射为 DB seed。
 # 原则：中英大致各半；头部模型厂商研究/政策文为重点；先 P0 再扩。
-# status.reachability 为 2026-07-25 探测结果，落地前需再验一次。
+# 硬约束：不接入付费墙/订阅库（Law.com Legaltech News、Bloomberg Law、Law360、
+#         The Information、SemiAnalysis 付费层等）；公开网页/RSS/官方 PDF 可进。
+# status.reachability：存量多为 2026-07-25 探测；v0.2 新增源默认 pending_probe。
 
-version: "0.1"
-updated: "2026-07-25"
+version: "0.2"
+updated: "2026-07-28"
 product: lawhot
+changelog:
+  - "v0.2：扩 OpenAI/Anthropic 研究子频道；补 NIST/EU AI Office/UK AISI/版权局；"
+  - "      Legaltech Hub、Import AI、Daily Papers；中文法研/智合等；明确排除付费源。"
+
 tracks:
   - id: law_x_ai
     name: 监管与案件（Law × AI）
@@ -17,7 +23,7 @@ tracks:
 tiers:
   P0: MVP 首批必接（建议 2 周内接通）
   P1: 第二批（稳定后扩）
-  P2: 观察池（有价值但噪声大/权限重/抓取难）
+  P2: 观察池（有价值但噪声大/抓取难/专题用）
 
 channels:
   - rss
@@ -26,6 +32,21 @@ channels:
   - x
   - api
   - newsletter
+
+policy:
+  no_paywall: true
+  excluded_examples:
+    - Law.com Legaltech News（付费墙）
+    - Bloomberg Law
+    - Law360
+    - The Information
+    - SemiAnalysis 付费层
+    - Lexis/Westlaw 全文库
+  vendor_filter: 入库过滤纯营销/客户案例；研究·安全·政策·System Card 加权
+  general_ai_filter: 通用 AI 源强过滤，只收影响法律/监管/版权/责任/就业/安全的信号
+  aihot_note: >
+    通用 AI 日更可复用 aihot 聚合层（aihot.virxact.com）做候选池，
+    LawHOT 侧重法律向一手源与策展，避免重复全量抓取。
 
 # ---------------------------------------------------------------------------
 # P0 — 英文（LegalTech / 监管 / 智库）
@@ -70,6 +91,20 @@ sources:
     trust: specialty_media
     notes: Bob Ambrogi；产品与律所 AI 动态强。
     status: { reachability: ok_rss }
+
+  - id: en-legaltech-hub
+    name: Legaltech Hub
+    lang: en
+    region: [global, us, eu]
+    tier: P0
+    channel: web
+    homepage: https://www.legaltechnologyhub.com/
+    list_url: https://www.legaltechnologyhub.com/contents/
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    notes: GenAI Legal Tech Map、厂商目录与采用调研；公开页抓取，不碰付费报告全文。
+    status: { reachability: pending_probe }
 
   - id: en-everlaw-blog
     name: Everlaw Blog
@@ -162,31 +197,45 @@ sources:
     notes: 法院/州政府 AI 采用与争议。
     status: { reachability: ok_rss }
 
-  - id: en-stanford-hai
-    name: Stanford HAI News
+  - id: en-nist-ai-rmf
+    name: NIST AI RMF / AIRC
     lang: en
     region: [us, global]
     tier: P0
     channel: web
-    homepage: https://hai.stanford.edu/news
-    feed: https://hai.stanford.edu/news/rss.xml
-    tracks: [law_x_ai, vendor_frontier]
-    trust: think_tank
-    notes: 宣称 RSS 路径返回 HTML，按网页抓取更稳。
-    status: { reachability: ok_web, feed: html_not_rss }
+    homepage: https://www.nist.gov/itl/ai-risk-management-framework
+    list_url: https://airc.nist.gov/Home
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 美方 AI 风险管理金标准与资源中心；更新慢但权重极高。
+    status: { reachability: pending_probe }
 
-  - id: en-mit-tr-ai
-    name: MIT Technology Review · AI
+  - id: en-us-aisi
+    name: US AI Safety Institute（CAISI / NIST 相关）
     lang: en
-    region: [global]
+    region: [us]
     tier: P0
-    channel: rss
-    homepage: https://www.technologyreview.com/topic/artificial-intelligence/
-    feed: https://www.technologyreview.com/topic/artificial-intelligence/feed/
+    channel: web
+    homepage: https://www.nist.gov/aisi
+    feed: null
     tracks: [law_x_ai, vendor_frontier]
-    trust: specialty_media
-    notes: 政策/社会影响向；需相关性过滤。
-    status: { reachability: ok_rss }
+    trust: official
+    notes: 评测与安全标准；栏目 URL 若迁址以 NIST 导航为准。
+    status: { reachability: pending_probe }
+
+  - id: en-us-copyright-ai
+    name: US Copyright Office · AI
+    lang: en
+    region: [us]
+    tier: P0
+    channel: web
+    homepage: https://www.copyright.gov/ai/
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 训练数据/生成内容版权规则；诉讼与合规高频引用。
+    status: { reachability: pending_probe }
 
   - id: en-eu-ai-act-hub
     name: European Commission · AI Act / AI Policy
@@ -201,6 +250,45 @@ sources:
     notes: AI Act 官方枢纽页；建议同时跟欧委会新闻室相关栏目。
     status: { reachability: ok_web }
 
+  - id: en-eu-ai-office
+    name: EU AI Office
+    lang: en
+    region: [eu]
+    tier: P0
+    channel: web
+    homepage: https://digital-strategy.ec.europa.eu/en/policies/ai-office
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI Act 实施、GPAI 行为准则、指南与新闻；与 EC hub 互补去重。
+    status: { reachability: pending_probe }
+
+  - id: en-uk-aisi
+    name: UK AI Security Institute（AISI）
+    lang: en
+    region: [uk, global]
+    tier: P0
+    channel: web
+    homepage: https://www.aisi.gov.uk/
+    feed: null
+    tracks: [law_x_ai, vendor_frontier]
+    trust: official
+    notes: 独立前沿评测与安全报告；域名若调整跟英政府导航。
+    status: { reachability: pending_probe }
+
+  - id: en-uk-ico-ai
+    name: UK ICO · AI guidance
+    lang: en
+    region: [uk]
+    tier: P1
+    channel: web
+    homepage: https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 数据保护 × AI 实务指引。
+    status: { reachability: pending_probe }
+
   - id: en-oecd-ai
     name: OECD.AI Policy Observatory
     lang: en
@@ -213,6 +301,59 @@ sources:
     trust: think_tank
     notes: 政策对照与国别动态；网页/API 探索。
     status: { reachability: ok_web }
+
+  - id: en-stanford-hai
+    name: Stanford HAI News
+    lang: en
+    region: [us, global]
+    tier: P0
+    channel: web
+    homepage: https://hai.stanford.edu/news
+    feed: https://hai.stanford.edu/news/rss.xml
+    tracks: [law_x_ai, vendor_frontier]
+    trust: think_tank
+    notes: 宣称 RSS 路径返回 HTML，按网页抓取更稳。
+    status: { reachability: ok_web, feed: html_not_rss }
+
+  - id: en-stanford-codex
+    name: Stanford CodeX
+    lang: en
+    region: [us, global]
+    tier: P0
+    channel: web
+    homepage: https://law.stanford.edu/codex-the-stanford-center-for-legal-informatics/
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: academic
+    notes: 法律信息学核心学术中心；活动/论文/工具动态。
+    status: { reachability: pending_probe }
+
+  - id: en-berkman-klein
+    name: Berkman Klein Center
+    lang: en
+    region: [us, global]
+    tier: P0
+    channel: web
+    homepage: https://cyber.harvard.edu/
+    list_url: https://cyber.harvard.edu/publications
+    feed: null
+    tracks: [law_x_ai]
+    trust: academic
+    notes: 哈佛网络法/AI 治理；公开报告与博客。
+    status: { reachability: pending_probe }
+
+  - id: en-mit-tr-ai
+    name: MIT Technology Review · AI
+    lang: en
+    region: [global]
+    tier: P0
+    channel: rss
+    homepage: https://www.technologyreview.com/topic/artificial-intelligence/
+    feed: https://www.technologyreview.com/topic/artificial-intelligence/feed/
+    tracks: [law_x_ai, vendor_frontier]
+    trust: specialty_media
+    notes: 政策/社会影响向；需相关性过滤。部分深度文可能墙，只收公开摘要+外链。
+    status: { reachability: ok_rss }
 
   - id: en-arxiv-cs-cy
     name: arXiv cs.CY（计算机与社会）
@@ -228,7 +369,7 @@ sources:
     status: { reachability: ok_rss }
 
   # -------------------------------------------------------------------------
-  # P0 — 英文头部厂商（你点名必须重点关注）
+  # P0 — OpenAI / Anthropic 研究子频道（重点拆细）
   # -------------------------------------------------------------------------
   - id: en-openai-news
     name: OpenAI News
@@ -256,6 +397,86 @@ sources:
     notes: 当前仍通，可能与 news feed 重叠；去重即可。
     status: { reachability: ok_rss }
 
+  - id: en-openai-research
+    name: OpenAI Research / Publications
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://openai.com/research/
+    alt_homepage: https://openai.com/index/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 研究文入口；可按 research/publication 标签过滤；与 news RSS 去重。
+    status: { reachability: pending_probe }
+
+  - id: en-openai-safety
+    name: OpenAI Safety & Responsibility
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://openai.com/safety/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: System Card / Preparedness 聚合；监管与尽调高频引用。
+    status: { reachability: pending_probe }
+
+  - id: en-openai-system-cards
+    name: OpenAI System Cards（模型安全卡）
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://openai.com/safety/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 随模型发布的 PDF/网页卡；可从 safety 页与 news 深链发现；全文 PDF 可摘要入库。
+    status: { reachability: pending_probe }
+
+  - id: en-openai-preparedness
+    name: OpenAI Preparedness Framework
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://openai.com/index/updating-our-preparedness-framework/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 前沿风险框架更新；单页+后续修订文。
+    status: { reachability: pending_probe }
+
+  - id: en-openai-model-spec
+    name: OpenAI Model Spec
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://model-spec.openai.com/
+    alt_homepage: https://openai.com/index/our-approach-to-the-model-spec/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 模型行为规范公开文档；合规/产品法务强相关；关注 changelog。
+    status: { reachability: pending_probe }
+
+  - id: en-openai-global-affairs
+    name: OpenAI Global Affairs / Policy
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://openai.com/global-affairs/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 对监管与立法表态；与 news 去重，政策文优先。
+    status: { reachability: pending_probe }
+
   - id: en-anthropic-news
     name: Anthropic Newsroom
     lang: en
@@ -279,8 +500,63 @@ sources:
     feed: null
     tracks: [vendor_frontier]
     trust: vendor_primary
-    notes: 对齐/可解释性/经济影响等研究；网页抓取。
+    notes: 对齐/可解释性/经济影响等研究总入口；网页抓取。
     status: { reachability: ok_web, feed: missing }
+
+  - id: en-anthropic-alignment
+    name: Anthropic Alignment Blog
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://alignment.anthropic.com/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 对齐/安全一手研究（含跨实验室评测等）；与 research 总页互补。
+    status: { reachability: pending_probe }
+
+  - id: en-anthropic-economic-index
+    name: Anthropic Economic Index
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://www.anthropic.com/research
+    list_url: https://www.anthropic.com/research
+    must_title: Economic Index|economic primitives|how .* uses Claude
+    feed: null
+    tracks: [vendor_frontier, ai_x_law]
+    trust: vendor_primary
+    notes: 职业/任务使用分布系列报告；对法务 AI 落地与劳动法讨论极有参考。
+    status: { reachability: pending_probe }
+
+  - id: en-anthropic-system-cards
+    name: Anthropic System / Model Cards & Risk Reports
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://www.anthropic.com/news
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: Claude 发布配套 system card / risk report PDF；从 newsroom 深链发现。
+    status: { reachability: pending_probe }
+
+  - id: en-anthropic-policy
+    name: Anthropic Policy / Societal Impact
+    lang: en
+    region: [global, us]
+    tier: P0
+    channel: web
+    homepage: https://www.anthropic.com/research
+    must_title: policy|governance|societal|regulation|democratic|safety framework
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: 监管立场与社会影响研究；与 newsroom 政策稿去重。
+    status: { reachability: pending_probe }
 
   - id: en-anthropic-engineering
     name: Anthropic Engineering
@@ -333,6 +609,19 @@ sources:
     trust: vendor_primary
     notes: Copilot/法律场景相关文用关键词收窄。
     status: { reachability: ok_rss }
+
+  - id: en-meta-ai-blog
+    name: Meta AI Blog
+    lang: en
+    region: [global, us]
+    tier: P1
+    channel: web
+    homepage: https://ai.meta.com/blog/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: vendor_primary
+    notes: Llama 开源/许可/政策；版权与开源合规相关优先。
+    status: { reachability: pending_probe }
 
   - id: en-hf-blog
     name: Hugging Face Blog
@@ -463,7 +752,7 @@ sources:
     notes: 权威法治媒体；AI 司法、法律科技与立法报道。
     status: { reachability: ok_web }
 
-  - id: zh-chinacourt-yaml
+  - id: zh-chinacourt
     name: 中国法院网
     lang: zh
     region: [cn]
@@ -479,6 +768,62 @@ sources:
     egress: domestic
     notes: 司法信息化与智慧法院主渠道之一。
     status: { reachability: ok_web }
+
+  - id: zh-fayan-bigdata
+    name: 中国司法大数据研究院 / 司法大数据服务网
+    lang: zh
+    region: [cn]
+    tier: P0
+    channel: web
+    homepage: https://data.court.gov.cn/
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: official
+    egress: domestic
+    notes: 智慧法院、司法 AI、法研杯等官方侧动态。
+    status: { reachability: pending_probe }
+
+  - id: zh-spp
+    name: 最高人民检察院
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.spp.gov.cn/
+    must_title: 人工智能|智能|数字检察|大数据|算法|科技|信息化
+    feed: null
+    tracks: [law_x_ai, ai_x_law]
+    trust: official
+    egress: domestic
+    notes: 数字检察与智能化办案。
+    status: { reachability: pending_probe }
+
+  - id: zh-samr-standards
+    name: 市场监管总局 / 国家标准（AI 相关）
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.samr.gov.cn/
+    must_title: 人工智能|大模型|算法|智能|标准
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 国标/行标与 AI 产品合规交叉。
+    status: { reachability: pending_probe }
+
+  - id: zh-tc260
+    name: 全国信安标委 TC260
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.tc260.org.cn/
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 网络安全与 AI 安全标准。
+    status: { reachability: pending_probe }
 
   - id: zh-jcrb
     name: 正义网
@@ -496,7 +841,7 @@ sources:
     notes: 检察系统媒体；数字检察与科技办案报道。
     status: { reachability: ok_web }
 
-  - id: zh-secrss-yaml
+  - id: zh-secrss
     name: 安全内参
     lang: zh
     region: [cn]
@@ -513,8 +858,35 @@ sources:
     notes: 安全/合规向；筛法律与 AI 交叉稿。
     status: { reachability: ok_web }
 
+  - id: zh-zhihe
+    name: 智合
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.zhihe.com/
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    egress: domestic
+    notes: 法律行业新媒体；律所/科技动态多，需滤软文与活动通稿。
+    status: { reachability: pending_probe }
+
+  - id: zh-lexis-cn-blog
+    name: LexisNexis 中国法律洞察
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.lexisnexis.com/blogs/cn/
+    feed: null
+    tracks: [ai_x_law]
+    trust: vendor_primary
+    notes: 中文落地与 Lexis+ AI China 等公开文；注意版权，只摘要+外链。
+    status: { reachability: pending_probe }
+
   # -------------------------------------------------------------------------
-  # P0 — 中文公众号（需你确认 biz / 抓取方式）
+  # P0 — 中文公众号（需确认 biz / 抓取方式）
   # -------------------------------------------------------------------------
   - id: zh-mp-shuzifalv
     name: 公众号·数字法律研究
@@ -608,9 +980,61 @@ sources:
     notes: 全站不限 AI，但 AI 法学前沿文质量高；需强过滤。
     status: { reachability: needs_wechat_id }
 
+  - id: zh-mp-zhihe
+    name: 公众号·智合
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: wechat
+    wechat_name: 智合
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    notes: 与网页源 zh-zhihe 互补；滤软文。
+    status: { reachability: needs_wechat_id }
+
   # -------------------------------------------------------------------------
-  # P1 — 扩展英文
+  # P1 — 高质量 AI 动态（强过滤；可与 aihot 互补）
   # -------------------------------------------------------------------------
+  - id: en-import-ai
+    name: Import AI（Jack Clark）
+    lang: en
+    region: [global]
+    tier: P0
+    channel: newsletter
+    homepage: https://jack-clark.net/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: specialty_media
+    notes: 研究/安全周报，质量极高；网页+邮件。法律相关段落加权。
+    status: { reachability: pending_probe }
+
+  - id: en-hf-daily-papers
+    name: Hugging Face Daily Papers
+    lang: en
+    region: [global]
+    tier: P0
+    channel: web
+    homepage: https://huggingface.co/papers
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: academic
+    notes: 论文日榜；legal/regulation/copyright/safety/governance 关键词过滤。
+    status: { reachability: pending_probe }
+
+  - id: en-the-batch
+    name: The Batch（DeepLearning.AI）
+    lang: en
+    region: [global]
+    tier: P1
+    channel: newsletter
+    homepage: https://www.deeplearning.ai/the-batch/
+    feed: null
+    tracks: [vendor_frontier]
+    trust: specialty_media
+    notes: 周更；只收监管/产业/安全交叉。
+    status: { reachability: pending_probe }
+
   - id: en-techcrunch-ai
     name: TechCrunch AI
     lang: en
@@ -637,19 +1061,199 @@ sources:
     notes: 欧向 AI 快讯；强过滤。
     status: { reachability: ok_rss }
 
-  - id: en-above-the-law
-    name: Above the Law
+  - id: en-nature-ai
+    name: Nature · AI / Machine Learning（公开页）
+    lang: en
+    region: [global]
+    tier: P1
+    channel: web
+    homepage: https://www.nature.com/subjects/machine-learning
+    feed: null
+    tracks: [law_x_ai, vendor_frontier]
+    trust: academic
+    notes: 仅公开摘要/新闻；社会影响与政策向；不订阅全文库。
+    status: { reachability: pending_probe }
+
+  - id: en-metr
+    name: METR
+    lang: en
+    region: [global, us]
+    tier: P1
+    channel: web
+    homepage: https://metr.org/
+    list_url: https://metr.org/blog/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: academic
+    notes: 前沿风险与能力评测；System Card 交叉验证常用。
+    status: { reachability: pending_probe }
+
+  - id: en-ada-lovelace
+    name: Ada Lovelace Institute
+    lang: en
+    region: [uk, eu]
+    tier: P1
+    channel: web
+    homepage: https://www.adalovelaceinstitute.org/
+    feed: null
+    tracks: [law_x_ai]
+    trust: think_tank
+    notes: AI 政策与社会影响研究。
+    status: { reachability: pending_probe }
+
+  - id: en-fli
+    name: Future of Life Institute
+    lang: en
+    region: [global]
+    tier: P1
+    channel: web
+    homepage: https://futureoflife.org/
+    feed: null
+    tracks: [law_x_ai, vendor_frontier]
+    trust: think_tank
+    notes: AI Safety Index 等；过滤倡议软文。
+    status: { reachability: pending_probe }
+
+  - id: en-edpb
+    name: EDPB（欧盟数据保护委员会）
+    lang: en
+    region: [eu]
+    tier: P1
+    channel: web
+    homepage: https://www.edpb.europa.eu/edpb_en
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI 与 GDPR 交叉意见。
+    status: { reachability: pending_probe }
+
+  - id: en-cnil-ai
+    name: CNIL · AI
+    lang: en
+    region: [eu, fr]
+    tier: P1
+    channel: web
+    homepage: https://www.cnil.fr/en
+    must_title: artificial intelligence|AI|intelligence artificielle
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 法国数据保护 × AI 指引（有英法文）。
+    status: { reachability: pending_probe }
+
+  - id: en-coe-ai
+    name: Council of Europe · AI
+    lang: en
+    region: [eu, global]
+    tier: P1
+    channel: web
+    homepage: https://www.coe.int/en/web/artificial-intelligence
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI 公约与人权框架。
+    status: { reachability: pending_probe }
+
+  - id: en-uspto-ai
+    name: USPTO · AI
     lang: en
     region: [us]
-    tier: P2
-    channel: rss
-    homepage: https://abovethelaw.com/
-    feed: https://abovethelaw.com/feed/
-    tracks: [ai_x_law, law_x_ai]
-    trust: specialty_media
-    notes: 噪声大；MVP 默认不抓，二期再开且强制 AI×法律双关键词。
-    status: { reachability: ok_rss }
+    tier: P1
+    channel: web
+    homepage: https://www.uspto.gov/initiatives/artificial-intelligence
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 专利与发明人资格等 AI 指南。
+    status: { reachability: pending_probe }
 
+  - id: en-epo-ai
+    name: EPO · AI / Computer-implemented inventions
+    lang: en
+    region: [eu]
+    tier: P1
+    channel: web
+    homepage: https://www.epo.org/en/news-events/in-focus/ict/artificial-intelligence
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 欧洲专利局 AI/CII 政策。
+    status: { reachability: pending_probe }
+
+  - id: en-helm-crfm
+    name: Stanford CRFM / HELM
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: web
+    homepage: https://crfm.stanford.edu/
+    list_url: https://crfm.stanford.edu/helm/
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: academic
+    notes: 评测与治理研究。
+    status: { reachability: pending_probe }
+
+  - id: en-ssrn-legal-ai
+    name: SSRN · Legal AI（关键词）
+    lang: en
+    region: [global]
+    tier: P1
+    channel: web
+    homepage: https://www.ssrn.com/
+    feed: null
+    tracks: [law_x_ai, ai_x_law]
+    trust: academic
+    notes: 法学预印本；检索 artificial intelligence law 等；只摘要+外链。
+    status: { reachability: pending_probe }
+
+  - id: en-hn-legal-ai
+    name: Hacker News（法律/监管关键词）
+    lang: en
+    region: [global]
+    tier: P1
+    channel: api
+    homepage: https://news.ycombinator.com/
+    api: https://hn.algolia.com/api/v1/search
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: general_media
+    notes: 仅高分且命中 legal/regulation/copyright/AI Act 等；不做全站。
+    status: { reachability: pending_probe }
+
+  - id: zh-jiqizhixin
+    name: 机器之心
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.jiqizhixin.com/
+    must_title: 法律|合规|监管|版权|诉讼|司法|律师|安全|治理|开源许可
+    feed: null
+    tracks: [vendor_frontier, law_x_ai]
+    trust: general_media
+    egress: domestic
+    notes: 中文 AI 媒体；强过滤法律交叉与监管稿。
+    status: { reachability: pending_probe }
+
+  - id: zh-qbitai
+    name: 量子位
+    lang: zh
+    region: [cn]
+    tier: P1
+    channel: web
+    homepage: https://www.qbitai.com/
+    must_title: 法律|合规|监管|版权|诉讼|司法|安全|治理
+    feed: null
+    tracks: [vendor_frontier]
+    trust: general_media
+    egress: domestic
+    notes: 滤软文与榜单；只收高相关。
+    status: { reachability: pending_probe }
+
+  # -------------------------------------------------------------------------
+  # P1 — LegalTech 厂商 / 实务扩展（滤营销）
+  # -------------------------------------------------------------------------
   - id: en-harvey-blog
     name: Harvey Blog
     lang: en
@@ -686,8 +1290,86 @@ sources:
     feed: null
     tracks: [ai_x_law]
     trust: vendor_primary
-    notes: 数据库厂商观点；注意版权，只摘要+外链。
+    notes: 数据库厂商观点；注意版权，只摘要+外链；不接付费库全文。
     status: { reachability: ok_web }
+
+  - id: en-relativity-blog
+    name: Relativity Blog
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: web
+    homepage: https://www.relativity.com/blog/
+    feed: null
+    tracks: [ai_x_law]
+    trust: vendor_primary
+    notes: eDiscovery 巨头；滤营销。
+    status: { reachability: pending_probe }
+
+  - id: en-imanage-blog
+    name: iManage Blog
+    lang: en
+    region: [global]
+    tier: P1
+    channel: web
+    homepage: https://imanage.com/blog/
+    feed: null
+    tracks: [ai_x_law]
+    trust: vendor_primary
+    notes: DMS + AI；滤产品软文。
+    status: { reachability: pending_probe }
+
+  - id: en-netdocuments-blog
+    name: NetDocuments Blog
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: web
+    homepage: https://www.netdocuments.com/blog
+    feed: null
+    tracks: [ai_x_law]
+    trust: vendor_primary
+    notes: 律所文档管理与 AI。
+    status: { reachability: pending_probe }
+
+  - id: en-aba-journal-tech
+    name: ABA Journal · Technology
+    lang: en
+    region: [us]
+    tier: P1
+    channel: web
+    homepage: https://www.abajournal.com/topic/legal-technology
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: specialty_media
+    notes: 美国律协视角；公开网页。
+    status: { reachability: pending_probe }
+
+  - id: en-ilta
+    name: ILTA（International Legal Technology Association）
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: web
+    homepage: https://www.iltanet.org/
+    feed: null
+    tracks: [ai_x_law]
+    trust: specialty_media
+    notes: 律所 IT 实务与会议动态。
+    status: { reachability: pending_probe }
+
+  - id: en-legal-dive
+    name: Legal Dive
+    lang: en
+    region: [us]
+    tier: P1
+    channel: web
+    homepage: https://www.legaldive.com/
+    feed: null
+    tracks: [ai_x_law, law_x_ai]
+    trust: specialty_media
+    notes: 商业法律/科技；公开页。
+    status: { reachability: pending_probe }
 
   - id: en-brookings-ai
     name: Brookings · Artificial Intelligence
@@ -726,50 +1408,11 @@ sources:
     notes: 体量大，必须标题/摘要命中 legal/law/court/statute 等。
     status: { reachability: ok_rss }
 
-  - id: en-whitehouse-news
-    name: White House News
-    lang: en
-    region: [us]
-    tier: P2
-    channel: rss
-    homepage: https://www.whitehouse.gov/news/
-    feed: https://www.whitehouse.gov/news/feed/
-    tracks: [law_x_ai]
-    trust: official
-    notes: 全站噪声大；MVP 默认不抓，改盯 AI 行政令专题页。
-    status: { reachability: ok_rss }
-
-  - id: en-courtlistener
-    name: CourtListener / RECAP
-    lang: en
-    region: [us]
-    tier: P2
-    channel: api
-    homepage: https://www.courtlistener.com/
-    feed: null
-    api: https://www.courtlistener.com/api/rest/v4/
-    tracks: [law_x_ai]
-    trust: official
-    notes: 美国诉讼原文；二期做「AI 相关案件」专题，不是日报主源。
-    status: { reachability: ok_api }
-
   # -------------------------------------------------------------------------
-  # P1 — 扩展中文（厂商研究 / 法律科技 / 待你补名单）
+  # P1 — 国产厂商（研究/安全/政策向）
   # -------------------------------------------------------------------------
-  - id: zh-mp-placeholder-legaltech-media
-    name: （待补）中文法律科技媒体号 2–4 个
-    lang: zh
-    region: [cn]
-    tier: P1
-    channel: wechat
-    wechat_name: null
-    tracks: [ai_x_law]
-    trust: specialty_media
-    notes: 请你按实际在看的 LegalTech 公众号补全；避免纯营销号。
-    status: { reachability: awaiting_owner }
-
   - id: zh-vendor-zhipu-research
-    name: 智谱研究 / 官方动态（网页或公众号）
+    name: 智谱研究 / 官方动态
     lang: zh
     region: [cn]
     tier: P1
@@ -777,7 +1420,7 @@ sources:
     homepage: https://www.zhipuai.cn/
     tracks: [vendor_frontier]
     trust: vendor_primary
-    notes: 对齐 aihot「智谱研究」类源；具体栏目 URL 待定点。
+    notes: 对齐 aihot「智谱研究」类源；具体栏目 URL 待定点；排除纯产品软文。
     status: { reachability: needs_url }
 
   - id: zh-vendor-moonshot
@@ -814,6 +1457,164 @@ sources:
     trust: vendor_primary
     status: { reachability: needs_wechat_id }
 
+  - id: zh-vendor-baichuan
+    name: 百川智能官方动态
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: web
+    homepage: https://www.baichuan-ai.com/
+    tracks: [vendor_frontier]
+    trust: vendor_primary
+    notes: 观察池；研究/开源许可相关时收。
+    status: { reachability: pending_probe }
+
+  - id: zh-vendor-iflytek
+    name: 科大讯飞 AI 动态
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: web
+    homepage: https://www.iflytek.com/
+    tracks: [vendor_frontier, ai_x_law]
+    trust: vendor_primary
+    notes: 司法/政务场景多，滤营销。
+    status: { reachability: pending_probe }
+
+  # -------------------------------------------------------------------------
+  # P2 — 观察池（噪声大 / 专题 / 非日报主源）
+  # -------------------------------------------------------------------------
+  - id: en-above-the-law
+    name: Above the Law
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://abovethelaw.com/
+    feed: https://abovethelaw.com/feed/
+    tracks: [ai_x_law, law_x_ai]
+    trust: specialty_media
+    notes: 噪声大；MVP 默认不抓，二期再开且强制 AI×法律双关键词。
+    status: { reachability: ok_rss }
+
+  - id: en-whitehouse-news
+    name: White House News
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.whitehouse.gov/news/
+    feed: https://www.whitehouse.gov/news/feed/
+    tracks: [law_x_ai]
+    trust: official
+    notes: 全站噪声大；MVP 默认不抓，改盯 AI 行政令专题页。
+    status: { reachability: ok_rss }
+
+  - id: en-courtlistener
+    name: CourtListener / RECAP
+    lang: en
+    region: [us]
+    tier: P2
+    channel: api
+    homepage: https://www.courtlistener.com/
+    feed: null
+    api: https://www.courtlistener.com/api/rest/v4/
+    tracks: [law_x_ai]
+    trust: official
+    notes: 美国诉讼原文；二期做「AI 相关案件」专题，不是日报主源。免费 API。
+    status: { reachability: ok_api }
+
+  - id: en-xai-announcements
+    name: xAI Announcements
+    lang: en
+    region: [global, us]
+    tier: P2
+    channel: web
+    homepage: https://x.ai/
+    feed: null
+    tracks: [vendor_frontier]
+    trust: vendor_primary
+    notes: 观察池；政策/开源相关时收。
+    status: { reachability: pending_probe }
+
+  - id: en-unesco-ai
+    name: UNESCO AI Ethics
+    lang: en
+    region: [global]
+    tier: P2
+    channel: web
+    homepage: https://www.unesco.org/en/artificial-intelligence
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 软法/伦理框架；更新慢。
+    status: { reachability: pending_probe }
+
+  - id: en-g7-hiroshima
+    name: G7 Hiroshima AI Process（公开材料）
+    lang: en
+    region: [global]
+    tier: P2
+    channel: web
+    homepage: https://www.oecd.org/en/topics/sub-issues/ai-principles.html
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: 国际软法；材料分散，观察性收录。
+    status: { reachability: pending_probe }
+
+  - id: en-iso-42001-news
+    name: ISO/IEC 42001 相关公开动态
+    lang: en
+    region: [global]
+    tier: P2
+    channel: web
+    homepage: https://www.iso.org/standard/81230.html
+    feed: null
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI 管理体系标准；从 ISO/认证机构公开新闻间接跟踪。
+    status: { reachability: pending_probe }
+
+  - id: en-wired-ai
+    name: Wired · AI（公开）
+    lang: en
+    region: [global]
+    tier: P2
+    channel: web
+    homepage: https://www.wired.com/tag/artificial-intelligence/
+    feed: null
+    tracks: [law_x_ai, vendor_frontier]
+    trust: general_media
+    notes: 社会影响向；强过滤；可能部分墙。
+    status: { reachability: pending_probe }
+
+  - id: en-ars-ai
+    name: Ars Technica · AI
+    lang: en
+    region: [us, global]
+    tier: P2
+    channel: rss
+    homepage: https://arstechnica.com/ai/
+    feed: https://feeds.arstechnica.com/arstechnica/technology-lab
+    tracks: [vendor_frontier, law_x_ai]
+    trust: general_media
+    notes: 技术深度；法律交叉才收。
+    status: { reachability: pending_probe }
+
+  - id: zh-xinyuan-ai
+    name: 智源研究院动态
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: web
+    homepage: https://www.baai.ac.cn/
+    feed: null
+    tracks: [vendor_frontier]
+    trust: academic
+    notes: 学术机构；治理/安全相关优先。
+    status: { reachability: pending_probe }
+
   - id: zh-x-priority-accounts
     name: X 重点账号包（厂商+法律政策）
     lang: mixed
@@ -825,6 +1626,7 @@ sources:
     notes: >
       建议账号（需 X API 或第三方转发）：@OpenAI @AnthropicAI @GoogleDeepMind
       @FTC @ICONewsUK 以及 2–3 个 LegalTech 评论者；中文侧可少而精。
+      仅作快讯，不替代正文源。
     status: { reachability: needs_x_access }
 
 # 入库过滤提示词/规则（给中台用，不是最终 prompt）
@@ -836,17 +1638,24 @@ ingest_rules:
     - liability|malpractice|hallucination.*court|AI.*判决|AI.*证据
     - privacy|GDPR|个人信息|数据出境|合规
     - eDiscovery|contract review|合同审查|尽调|legal agent
+    - system card|preparedness|model spec|alignment|economic index
+    - NIST AI RMF|AI Office|AISI|Copyright Office
   exclude_any:
     - 招聘|求职|广告|优惠|课程推广|免费领取
     - customer story|客户案例|success story
+    - paywall|subscriber only|members only
   vendor_frontier_extra:
     keep_if_any:
-      - safety|alignment|policy|security|evaluation|responsible|governance|经济影响|安全|对齐|治理|监管
+      - safety|alignment|policy|security|evaluation|responsible|governance|经济影响|安全|对齐|治理|监管|system card|model card|preparedness
     drop_if_only:
-      - pricing|launch party|hiring|merch
+      - pricing|launch party|hiring|merch|success story
 
 seed_counts:
-  p0_en_estimated: 22
-  p0_zh_estimated: 13
-  p1_plus: 18
-  note: 中英按 P0 计接近各半；厂商研究单独加权，不计入「冲淡法律垂直」的噪声配额。
+  version: "0.2"
+  total_sources_approx: 110
+  p0_approx: 55
+  p1_approx: 40
+  p2_approx: 15
+  note: >
+    中英按 P0 计接近各半；OpenAI/Anthropic 子频道加权不计入「冲淡法律垂直」的噪声配额。
+    明确排除付费墙源；通用 AI 可与 aihot 互补。
