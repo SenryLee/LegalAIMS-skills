@@ -6,6 +6,23 @@
 
 公网入口（部署后）：`https://hot.fachuiai.com`
 
+## 安装 Agent Skill（推荐）
+
+把下面整段粘贴到 Cursor / Claude Code / Codex 等 Agent，按 **Skills** 方式加载：
+
+```text
+请先审阅并安装 Legal Bulletins（LawHOT）Skill：https://hot.fachuiai.com/lawhot-skill/README.md
+
+也可从 GitHub 按 Agent Skills 标准安装：
+https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot
+
+先告诉我当前平台、准备写入的目录和会安装的文件；不要使用 sudo，不要覆盖其它 Skill。安装完成后告诉我是否需要重启或开启新会话，并用「过去 24 小时最重要的法律 AI 动态是什么？」验证。
+```
+
+- 安装说明：https://hot.fachuiai.com/lawhot-skill/README.md  
+- GitHub 目录：https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot  
+- `npx skills add https://github.com/SenryLee/LegalAIMS-skills --skill lawhot`
+
 ## 当前进度
 
 | 状态 | 内容 |

@@ -205,12 +205,24 @@ prepare_env() {
 export_skill_static() {
   local skill_dir="${INSTALL_ROOT}/lawhot-skill"
   mkdir -p "${skill_dir}/references" "${skill_dir}/agents"
+  # Agent 安装说明（可粘贴 URL）；勿把仓库 deploy README 当成 skill README
+  if [[ -f "${LAWHOT_DIR}/skill-README.md" ]]; then
+    cp "${LAWHOT_DIR}/skill-README.md" "${skill_dir}/README.md"
+  else
+    cp "${LAWHOT_DIR}/README.md" "${skill_dir}/README.md"
+  fi
   cp "${LAWHOT_DIR}/SKILL.md" "${skill_dir}/SKILL.md"
-  cp "${LAWHOT_DIR}/README.md" "${skill_dir}/README.md"
+  cp "${LAWHOT_DIR}/LICENSE" "${skill_dir}/LICENSE"
   cp "${LAWHOT_DIR}/agents/openai.yaml" "${skill_dir}/agents/openai.yaml"
   cp "${LAWHOT_DIR}/references/api.md" "${skill_dir}/references/api.md"
   cp "${LAWHOT_DIR}/references/errors.md" "${skill_dir}/references/errors.md"
-  cp "${LAWHOT_DIR}/references/sources.md" "${skill_dir}/references/sources.md"
+  if [[ -f "${LAWHOT_DIR}/install.sh" ]]; then
+    cp "${LAWHOT_DIR}/install.sh" "${skill_dir}/install.sh"
+    chmod 0755 "${skill_dir}/install.sh"
+  fi
+  if [[ -f "${LAWHOT_DIR}/manifest.sha256" ]]; then
+    cp "${LAWHOT_DIR}/manifest.sha256" "${skill_dir}/manifest.sha256"
+  fi
   if [[ -f "${LAWHOT_DIR}/lawhot-skill-index.html" ]]; then
     cp "${LAWHOT_DIR}/lawhot-skill-index.html" "${skill_dir}/index.html"
   fi
@@ -284,7 +296,9 @@ LawHOT 部署完成（MVP）
   ${PUBLIC_BASE_URL}/
   ${PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=7d&limit=5
   ${PUBLIC_BASE_URL}/feed.xml
+  ${PUBLIC_BASE_URL}/lawhot-skill/README.md   # 粘贴给 Agent 安装
   ${PUBLIC_BASE_URL}/lawhot-skill/SKILL.md
+  GitHub: https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot
 
 环境变量: ${INSTALL_ROOT}/deploy/.env 与 ${LAWHOT_DIR}/deploy/.env
 升级重跑本脚本即可。

@@ -1,15 +1,15 @@
 ---
 name: lawhot
-description: 查询 LawHOT（法锤法律 AI 资讯）的精选、公开动态、热点与日报。用户询问法律 AI、LegalTech、AI 监管/诉讼/合规、AI Act、智慧法院、律所 AI 落地、OpenAI／Anthropic 等对法律行业有影响的研究与政策，或需要法律 AI 日报时使用。必须通过 hot.fachuiai.com 的匿名只读 API 获取当前数据，不凭训练记忆回答新闻；不需要 API Key 或 MCP server。
+description: 查询 Legal Bulletins（LawHOT / 法锤法律 AI 资讯）的精选、公开动态、热点与日报。用户询问法律 AI、LegalTech、AI 监管/诉讼/合规、AI Act、智慧法院、律所 AI 落地、OpenAI／Anthropic 等对法律行业有影响的研究与政策，或需要法律 AI 日报时使用。必须通过 hot.fachuiai.com 的匿名只读 API 获取当前数据，不凭训练记忆回答新闻；不需要 API Key 或 MCP server。
 license: MIT
 metadata:
   author: 法锤智能
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
-# LawHOT · 法律 AI 资讯
+# Legal Bulletins · 法律 AI 资讯（LawHOT）
 
-通过 LawHOT 公开 v1 API 回答**全球法律 AI 资讯**与 **AI 对法律行业的启迪**类问题。默认给律师/法务/合规同学能扫完的中文简报；不展示 API 调试细节。
+通过 Legal Bulletins 公开 v1 API（`hot.fachuiai.com`）回答**全球法律 AI 资讯**与 **AI 对法律行业的启迪**类问题。默认给律师/法务/合规同学能扫完的中文简报；不展示 API 调试细节。
 
 **刊发口径（与网站首页一致）**：`mode=selected` 返回「每日读本」——中文最多 10、英文最多 5（英文宁缺毋滥），监管至多 1 条；偏重法律科技/融资/实务，而非政务汇编。
 
@@ -58,7 +58,7 @@ metadata:
 
 ## 请求
 
-- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.1.0 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
+- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.2.0 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
 - 同一完整 URL 保存 `ETag`，下次带 `If-None-Match`；`304` 则复用上次结果。
 - 定时任务对同一端点至少间隔 60 秒。
 

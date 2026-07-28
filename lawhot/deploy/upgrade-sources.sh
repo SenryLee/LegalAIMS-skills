@@ -64,6 +64,25 @@ docker compose --env-file .env build --pull=false --build-arg "BASE_IMAGE=${LAWH
 log "docker compose up -d"
 docker compose --env-file .env up -d
 
+# 同步公网 Skill 安装包（nginx alias /lawhot-skill/）
+SKILL_DIR="${INSTALL_ROOT}/lawhot-skill"
+LAWHOT_SRC="${REPO_DIR}/lawhot"
+log "export skill package -> ${SKILL_DIR}"
+mkdir -p "${SKILL_DIR}/references" "${SKILL_DIR}/agents"
+if [[ -f "${LAWHOT_SRC}/skill-README.md" ]]; then
+  cp "${LAWHOT_SRC}/skill-README.md" "${SKILL_DIR}/README.md"
+else
+  cp "${LAWHOT_SRC}/README.md" "${SKILL_DIR}/README.md"
+fi
+cp "${LAWHOT_SRC}/SKILL.md" "${SKILL_DIR}/SKILL.md"
+cp "${LAWHOT_SRC}/LICENSE" "${SKILL_DIR}/LICENSE"
+cp "${LAWHOT_SRC}/agents/openai.yaml" "${SKILL_DIR}/agents/openai.yaml"
+cp "${LAWHOT_SRC}/references/api.md" "${SKILL_DIR}/references/api.md"
+cp "${LAWHOT_SRC}/references/errors.md" "${SKILL_DIR}/references/errors.md"
+[[ -f "${LAWHOT_SRC}/install.sh" ]] && cp "${LAWHOT_SRC}/install.sh" "${SKILL_DIR}/install.sh" && chmod 0755 "${SKILL_DIR}/install.sh"
+[[ -f "${LAWHOT_SRC}/manifest.sha256" ]] && cp "${LAWHOT_SRC}/manifest.sha256" "${SKILL_DIR}/manifest.sha256"
+[[ -f "${LAWHOT_SRC}/lawhot-skill-index.html" ]] && cp "${LAWHOT_SRC}/lawhot-skill-index.html" "${SKILL_DIR}/index.html"
+
 # 等健康
 sleep 5
 if curl -fsS --connect-timeout 5 --max-time 15 http://127.0.0.1:18080/healthz >/tmp/lawhot-health.json; then
@@ -93,3 +112,6 @@ curl -fsS http://127.0.0.1:18080/healthz || true
 echo
 log "done $(date -Is)"
 log "公网验收: curl -sS https://hot.fachuiai.com/healthz"
+log "Skill 安装包: curl -sS https://hot.fachuiai.com/lawhot-skill/README.md | head"
+log "粘贴给 Agent: https://hot.fachuiai.com/lawhot-skill/README.md"
+log "GitHub Skills: https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot"

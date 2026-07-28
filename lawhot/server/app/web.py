@@ -488,7 +488,7 @@ def layout(title: str, body: str, *, description: str = "", page: str = "inner")
       <p>{_esc(BRAND)} · {_esc(BRAND_SUB)}。资讯聚合，非法律意见；重要引用请回原文核对。</p>
       <p>
         <a href="{_esc(PUBLIC_BASE_URL)}/feed.xml">RSS</a> ·
-        <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md">Agent Skill</a> ·
+        <a href="{_esc(PUBLIC_BASE_URL)}/agent">Agent Skill</a> ·
         <a href="{_esc(PUBLIC_BASE_URL)}/api/v1/items?mode=selected&amp;window=24h&amp;limit=10">JSON API</a>
       </p>
     </footer>
@@ -636,19 +636,32 @@ def render_item(row: Any) -> str:
 
 
 def render_skill_index() -> str:
+    install_prompt = (
+        "请先审阅并安装 Legal Bulletins（LawHOT）Skill："
+        f"{PUBLIC_BASE_URL}/lawhot-skill/README.md\n\n"
+        "也可从 GitHub 按 Agent Skills 标准安装：\n"
+        "https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot\n\n"
+        "先告诉我当前平台、准备写入的目录和会安装的文件；不要使用 sudo，不要覆盖其它 Skill。"
+        "安装完成后告诉我是否需要重启或开启新会话，并用「过去 24 小时最重要的法律 AI 动态是什么？」验证。"
+    )
     body = f"""
 {_nav(None)}
 <section class="hero">
   <div class="brand-wrap"><h1 class="brand" style="font-size:clamp(2.4rem,7vw,3.8rem)">{_esc(BRAND)}</h1></div>
   <p class="brand-sub">Agent Skill</p>
-  <p class="tagline">给 Agent 安装的说明书。人类读者请先回<a href="{_esc(PUBLIC_BASE_URL)}/">精选首页</a>。</p>
+  <p class="tagline">把下面整段粘贴到 Cursor / Claude Code / Codex 等 Agent，按 Skills 方式安装。人类读者请先回<a href="{_esc(PUBLIC_BASE_URL)}/">精选首页</a>。</p>
 </section>
 <hr class="metal-rule" />
 <article class="item" style="display:block;border:0">
-  <p class="summary" style="color:var(--ink-soft)">把下面的地址发给 Cursor / Claude Code / Codex 等支持 Agent Skills 的工具：</p>
-  <p><code>{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md</code></p>
+  <p class="summary" style="color:var(--ink-soft)">推荐粘贴给 Agent：</p>
+  <pre style="white-space:pre-wrap;word-break:break-word;background:var(--surface);padding:1rem 1.1rem;border:1px solid var(--rule);font-size:0.92rem;line-height:1.55">{_esc(install_prompt)}</pre>
+  <p class="summary" style="color:var(--ink-soft);margin-top:1.25rem">直链：</p>
+  <p><code>{_esc(PUBLIC_BASE_URL)}/lawhot-skill/README.md</code></p>
+  <p><code>https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot</code></p>
   <div class="links">
+    <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/README.md">打开安装说明</a>
     <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md">打开 SKILL.md</a>
+    <a href="https://github.com/SenryLee/LegalAIMS-skills/tree/main/lawhot">GitHub 目录</a>
     <a href="{_esc(PUBLIC_BASE_URL)}/">返回精选</a>
   </div>
 </article>
