@@ -45,6 +45,26 @@ git checkout -B "${REPO_BRANCH}" "FETCH_HEAD"
 git reset --hard "FETCH_HEAD"
 log "now at $(git rev-parse --short HEAD) $(git log -1 --oneline)"
 
+# 同步公网 /lawhot-skill/ 静态包（install.sh / manifest / SKILL.md）
+SKILL_PUBLISH="${INSTALL_ROOT}/lawhot-skill"
+if [[ -d "${REPO_DIR}/lawhot" ]]; then
+  log "publish skill static -> ${SKILL_PUBLISH}"
+  mkdir -p "${SKILL_PUBLISH}/references" "${SKILL_PUBLISH}/agents"
+  cp "${REPO_DIR}/lawhot/SKILL.md" "${SKILL_PUBLISH}/SKILL.md"
+  cp "${REPO_DIR}/lawhot/LICENSE" "${SKILL_PUBLISH}/LICENSE"
+  cp "${REPO_DIR}/lawhot/README.md" "${SKILL_PUBLISH}/README.md"
+  cp "${REPO_DIR}/lawhot/install.sh" "${SKILL_PUBLISH}/install.sh"
+  chmod +x "${SKILL_PUBLISH}/install.sh"
+  cp "${REPO_DIR}/lawhot/manifest.sha256" "${SKILL_PUBLISH}/manifest.sha256"
+  cp "${REPO_DIR}/lawhot/agents/openai.yaml" "${SKILL_PUBLISH}/agents/openai.yaml"
+  cp "${REPO_DIR}/lawhot/references/api.md" "${SKILL_PUBLISH}/references/api.md"
+  cp "${REPO_DIR}/lawhot/references/errors.md" "${SKILL_PUBLISH}/references/errors.md"
+  cp "${REPO_DIR}/lawhot/references/sources.md" "${SKILL_PUBLISH}/references/sources.md" 2>/dev/null || true
+  if [[ -f "${REPO_DIR}/lawhot/lawhot-skill-index.html" ]]; then
+    cp "${REPO_DIR}/lawhot/lawhot-skill-index.html" "${SKILL_PUBLISH}/index.html"
+  fi
+fi
+
 cd "${DEPLOY_DIR}"
 if [[ ! -f .env ]]; then
   log "ERROR: 缺少 ${DEPLOY_DIR}/.env（首次部署时由 one-click 生成）"

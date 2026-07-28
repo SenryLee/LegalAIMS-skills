@@ -20,7 +20,7 @@ screen -S lawhot
 
 # 3) 在 screen 里设置变量并部署
 set -e
-export LAWHOT_REPO_BRANCH=cursor/lawhot-sources-plan-e591
+export LAWHOT_REPO_BRANCH=main
 export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
 export LAWHOT_BASE_IMAGE="docker.m.daocloud.io/library/python:3.12-slim"
 # 密码见洛杉矶：cat /etc/lawhot/proxy.env 里的 LAWHOT_PROXY_PASS

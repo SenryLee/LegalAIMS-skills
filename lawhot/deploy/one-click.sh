@@ -4,7 +4,7 @@
 # 国内若 raw.githubusercontent.com 卡住，请先下载再执行（推荐）：
 #   curl -fL --connect-timeout 10 --max-time 60 \
 #     -o /tmp/lawhot-one-click.sh \
-#     "https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@cursor/lawhot-sources-plan-e591/lawhot/deploy/one-click.sh"
+#     "https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/lawhot/deploy/one-click.sh"
 #   bash /tmp/lawhot-one-click.sh
 #
 set -euo pipefail
@@ -14,7 +14,6 @@ echo "[lawhot] one-click starting at $(date -Is)"
 REPO_URL="${LAWHOT_REPO_URL:-https://github.com/SenryLee/LegalAIMS-skills.git}"
 # 国内可改为：
 #   export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
-# PR 合并前请显式指定功能分支
 REPO_BRANCH="${LAWHOT_REPO_BRANCH:-main}"
 INSTALL_ROOT="${LAWHOT_INSTALL_ROOT:-/opt/lawhot}"
 REPO_DIR="${INSTALL_ROOT}/repo"
@@ -203,18 +202,24 @@ prepare_env() {
 }
 
 export_skill_static() {
+  # 对齐 aihot-skill：运行时包 + 人类可读 README + 校验清单
   local skill_dir="${INSTALL_ROOT}/lawhot-skill"
   mkdir -p "${skill_dir}/references" "${skill_dir}/agents"
   cp "${LAWHOT_DIR}/SKILL.md" "${skill_dir}/SKILL.md"
+  cp "${LAWHOT_DIR}/LICENSE" "${skill_dir}/LICENSE"
   cp "${LAWHOT_DIR}/README.md" "${skill_dir}/README.md"
+  cp "${LAWHOT_DIR}/install.sh" "${skill_dir}/install.sh"
+  chmod +x "${skill_dir}/install.sh"
+  cp "${LAWHOT_DIR}/manifest.sha256" "${skill_dir}/manifest.sha256"
   cp "${LAWHOT_DIR}/agents/openai.yaml" "${skill_dir}/agents/openai.yaml"
   cp "${LAWHOT_DIR}/references/api.md" "${skill_dir}/references/api.md"
   cp "${LAWHOT_DIR}/references/errors.md" "${skill_dir}/references/errors.md"
-  cp "${LAWHOT_DIR}/references/sources.md" "${skill_dir}/references/sources.md"
+  # 信源表仅供人看，不进 Agent 运行时目录；放在 skill 站目录便于运维下载
+  cp "${LAWHOT_DIR}/references/sources.md" "${skill_dir}/references/sources.md" 2>/dev/null || true
   if [[ -f "${LAWHOT_DIR}/lawhot-skill-index.html" ]]; then
     cp "${LAWHOT_DIR}/lawhot-skill-index.html" "${skill_dir}/index.html"
   fi
-  log "Skill 静态文件 -> ${skill_dir}"
+  log "Skill 静态包 -> ${skill_dir}（含 install.sh + manifest）"
 }
 
 start_stack() {
@@ -285,6 +290,11 @@ LawHOT 部署完成（MVP）
   ${PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=7d&limit=5
   ${PUBLIC_BASE_URL}/feed.xml
   ${PUBLIC_BASE_URL}/lawhot-skill/SKILL.md
+  ${PUBLIC_BASE_URL}/lawhot-skill/install.sh
+  ${PUBLIC_BASE_URL}/lawhot-skill/README.md
+
+本机装 Skill（给用户复制）:
+  bash <(curl -fsSL ${PUBLIC_BASE_URL}/lawhot-skill/install.sh) --target claude
 
 环境变量: ${INSTALL_ROOT}/deploy/.env 与 ${LAWHOT_DIR}/deploy/.env
 升级重跑本脚本即可。

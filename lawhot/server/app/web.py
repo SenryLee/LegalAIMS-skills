@@ -636,6 +636,7 @@ def render_item(row: Any) -> str:
 
 
 def render_skill_index() -> str:
+    skill_base = f"{PUBLIC_BASE_URL}/lawhot-skill"
     body = f"""
 {_nav(None)}
 <section class="hero">
@@ -645,10 +646,20 @@ def render_skill_index() -> str:
 </section>
 <hr class="metal-rule" />
 <article class="item" style="display:block;border:0">
-  <p class="summary" style="color:var(--ink-soft)">把下面的地址发给 Cursor / Claude Code / Codex 等支持 Agent Skills 的工具：</p>
-  <p><code>{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md</code></p>
+  <p class="summary" style="color:var(--ink-soft)">把下面整段复制给 Cursor / Claude Code / Codex / Grok：</p>
+  <pre style="white-space:pre-wrap;background:var(--ivory-2);padding:1rem;border-radius:8px;font-size:.92rem">请先审阅并安装 Legal Bulletins（LawHOT）Skill：
+{_esc(skill_base)}/README.md
+
+先告诉我当前平台、准备写入的目录和会安装的文件；不要使用 sudo，不要覆盖其它 Skill。
+安装完成后用「过去 24 小时最重要的法律 AI 动态是什么？」验证。</pre>
+  <p class="summary" style="color:var(--ink-soft);margin-top:1.25rem">或本机一键安装（Claude Code）：</p>
+  <pre style="white-space:pre-wrap;background:var(--ivory-2);padding:1rem;border-radius:8px;font-size:.92rem">bash &lt;(curl -fsSL {_esc(skill_base)}/install.sh) --target claude</pre>
+  <p class="summary" style="color:var(--ink-soft);margin-top:1.25rem">Codex / 通用 agents 目录：</p>
+  <pre style="white-space:pre-wrap;background:var(--ivory-2);padding:1rem;border-radius:8px;font-size:.92rem">bash &lt;(curl -fsSL {_esc(skill_base)}/install.sh) --target agents</pre>
   <div class="links">
-    <a href="{_esc(PUBLIC_BASE_URL)}/lawhot-skill/SKILL.md">打开 SKILL.md</a>
+    <a href="{_esc(skill_base)}/README.md">安装说明</a>
+    <a href="{_esc(skill_base)}/SKILL.md">SKILL.md</a>
+    <a href="{_esc(skill_base)}/manifest.sha256">manifest</a>
     <a href="{_esc(PUBLIC_BASE_URL)}/">返回精选</a>
   </div>
 </article>
