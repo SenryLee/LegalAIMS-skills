@@ -15,7 +15,7 @@ REPO_URL="${LAWHOT_REPO_URL:-https://github.com/SenryLee/LegalAIMS-skills.git}"
 # 国内可改为：
 #   export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
 # PR 合并前请显式指定功能分支
-REPO_BRANCH="${LAWHOT_REPO_BRANCH:-cursor/lawhot-sources-plan-e591}"
+REPO_BRANCH="${LAWHOT_REPO_BRANCH:-main}"
 INSTALL_ROOT="${LAWHOT_INSTALL_ROOT:-/opt/lawhot}"
 REPO_DIR="${INSTALL_ROOT}/repo"
 LAWHOT_DIR="${REPO_DIR}/lawhot"

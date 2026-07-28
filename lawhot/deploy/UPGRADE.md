@@ -1,90 +1,110 @@
-# 小升级（不停机感尽量短）
+# Workbench 小升级（防弹出登录 / 掉线）
 
-在阿里云 Workbench（`hot.fachuiai.com` → `47.119.184.45`）：
+阿里云 2G 机器 + Workbench 网页终端有两个坑：
 
-```bash
-export LAWHOT_REPO_BRANCH=main
-export LAWHOT_REPO_URL="https://ghfast.top/https://github.com/SenryLee/LegalAIMS-skills.git"
+1. **一次粘贴太长** → 终端卡死，网页像“重新登录”
+2. **`docker build` 内存打满** → 会话断开（任务其实可能还在跑）
 
-cd /opt/lawhot/repo
-git remote set-url origin "$LAWHOT_REPO_URL" || true
-git fetch --depth 1 origin "$LAWHOT_REPO_BRANCH"
-git checkout -B "$LAWHOT_REPO_BRANCH" FETCH_HEAD
-git reset --hard FETCH_HEAD
-```
+所以：**不要一次粘贴整段多行命令**。按下面 **3 行**，一行一行回车。
 
-## 配置 DeepSeek（摘要 + 英译中，必做）
+---
 
-在 `lawhot/deploy/.env` 写入（**不要把 Key 提交到 git**）：
+## 正确做法（只粘 3 次，每次一行）
+
+### 第 1 行：开 screen（掉线也不丢任务）
 
 ```bash
-cd /opt/lawhot/repo/lawhot/deploy
-
-# 若已有旧行则覆盖，否则追加
-grep -q '^OPENAI_API_KEY=' .env \
-  && sed -i 's|^OPENAI_API_KEY=.*|OPENAI_API_KEY=你的DeepSeekKey|' .env \
-  || echo 'OPENAI_API_KEY=你的DeepSeekKey' >> .env
-
-grep -q '^OPENAI_BASE_URL=' .env \
-  && sed -i 's|^OPENAI_BASE_URL=.*|OPENAI_BASE_URL=https://api.deepseek.com|' .env \
-  || echo 'OPENAI_BASE_URL=https://api.deepseek.com' >> .env
-
-grep -q '^OPENAI_MODEL=' .env \
-  && sed -i 's|^OPENAI_MODEL=.*|OPENAI_MODEL=deepseek-v4-flash|' .env \
-  || echo 'OPENAI_MODEL=deepseek-v4-flash' >> .env
+screen -S lawhot || (apt-get install -y screen && screen -S lawhot)
 ```
 
-## 重建容器并触发 seed + 抓取 + 刊发
+看到空终端、提示符回来即可。  
+若提示 `screen` 没有，用：`apt-get install -y screen` 再执行 `screen -S lawhot`。
+
+### 第 2 行：下载升级脚本（只要这一行）
 
 ```bash
-cd /opt/lawhot/repo/lawhot/deploy
-source .env
-export LAWHOT_BASE_IMAGE="${LAWHOT_BASE_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}"
-docker compose --env-file .env build --pull=false --build-arg "BASE_IMAGE=${LAWHOT_BASE_IMAGE}"
-docker compose --env-file .env up -d
-
-# 仅把 sources.v1.yaml 写入 SQLite 信源表（不抓网页）
-curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" \
-  https://hot.fachuiai.com/admin/seed-sources
-
-# 抓取 + 摘要/翻译 + 生成「今日读本」（中≤10 / 英≤5）
-curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" \
-  https://hot.fachuiai.com/admin/ingest
-
-# 若只想先恢复首页、暂不重抓：用库内候选重编今日刊
-curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" \
-  https://hot.fachuiai.com/admin/rebuild-edition
-
-curl -sS https://hot.fachuiai.com/healthz | python3 -m json.tool | head -40
-curl -sS 'https://hot.fachuiai.com/api/v1/sources?ingestible=true' | python3 -c \
-  'import sys,json; d=json.load(sys.stdin); print(d.get("counts"), "items", d.get("count"))'
+curl -fL --connect-timeout 15 --max-time 90 -o /tmp/lawhot-upgrade.sh https://ghfast.top/https://raw.githubusercontent.com/SenryLee/LegalAIMS-skills/main/lawhot/deploy/upgrade-sources.sh
 ```
 
-说明：
-
-- 启动时会自动 `seed_sources_to_db()`（注册表 v0.2 → SQLite `sources` 表）。
-- 升级后若未跑 ingest，可能出现「今日读本为空」；新版本启动时会尝试重建；仍空时执行 `rebuild-edition` 或完整 `ingest`。
-- 公开查看信源：`GET /api/v1/sources`（可加 `tier=P0`、`ingestible=true`）。
-
-验收：
-
-- `healthz.sources_registry_version` = `"0.2"`
-- `healthz.sources.ingestible` ≥ 80
-- 首页品牌为 **Legal Bulletins**
-- 「今日读本」有中文 N / 英文 M；摘要是 2～4 句概括
-
-若摘要仍像半截翻译，确认 `.env` 已配 DeepSeek 后执行：
+检查：
 
 ```bash
-curl -sS -X POST -H "x-admin-token: ${LAWHOT_ADMIN_TOKEN}" \
-  https://hot.fachuiai.com/admin/reenrich
+wc -c /tmp/lawhot-upgrade.sh; head -n 3 /tmp/lawhot-upgrade.sh
 ```
 
-## 本版刊发规则
+应能看到 `LawHOT 小升级` 字样，文件大约几千字节。若失败，换镜像：
 
-- 每日自然日固定刊：中文最多 10、英文最多 5（英文宁缺毋滥）
-- 监管最多 1 条，可为 0
-- 首页与 `mode=selected` API / Skill 口径一致
-- 偏重法律科技媒体；政务源降权
-- 信源注册表 v0.2：约 117+ YAML 条 + 内置中文列表；**不含付费墙**
-- MVP 自动抓取：RSS + 网页列表（P0/P1）；公众号 / X / 付费库不进抓取
+```bash
+curl -fL --connect-timeout 15 --max-time 90 -o /tmp/lawhot-upgrade.sh https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/lawhot/deploy/upgrade-sources.sh
+```
+
+### 第 3 行：执行（构建会跑几分钟，别关页面也没关系）
+
+```bash
+bash /tmp/lawhot-upgrade.sh
+```
+
+日志会打印 `pull main`、`docker compose build`、`seed sources`、`ingest`。
+
+---
+
+## 若网页又“弹出登录”
+
+1. 重新进 Workbench  
+2. 执行：
+
+```bash
+screen -r lawhot
+```
+
+没有会话再：
+
+```bash
+tail -100 /tmp/lawhot-deploy.log
+docker ps | grep lawhot
+curl -sS http://127.0.0.1:18080/healthz
+```
+
+---
+
+## 验收（升级跑完后，再单独粘）
+
+```bash
+curl -sS http://127.0.0.1:18080/healthz
+```
+
+期望看到类似：
+
+- `"version":"0.2.0"`
+- `"sources_registry_version":"0.2"`
+- `sources.ingestible` 数字较大
+
+公网：
+
+```bash
+curl -sS https://hot.fachuiai.com/healthz
+curl -sS "https://hot.fachuiai.com/api/v1/sources?ingestible=true" | head -c 300
+```
+
+---
+
+## 常见误操作（会导致弹出登录感）
+
+| 不要 | 原因 |
+|---|---|
+| 一次粘贴 20 行带 `export`/`set -e` 的长脚本 | Workbench 粘贴缓冲区/会话易炸 |
+| 粘贴里带 `YOUR_PASS`、密钥、中文说明混命令 | 容易敲错或交互卡住 |
+| `systemctl restart docker` | 2G 机易 OOM，表现为退出登录 |
+| 不进 `screen` 直接 `docker compose build` | 掉线后不知道进度 |
+
+---
+
+## 脚本做了什么
+
+`upgrade-sources.sh` 会：
+
+1. `git fetch` **main**（经 ghfast 镜像，无需 GitHub 登录）  
+2. `docker compose build && up -d`（**不**重启宿主机 docker）  
+3. 调本机 `admin/seed-sources` + `admin/ingest`（用 `.env` 里已有的 `LAWHOT_ADMIN_TOKEN`）
+
+不需要你输入任何账号密码。若提示密码，说明粘贴串了命令或当前不是 root 会话，先 `whoami` 看是否为 `root`。
