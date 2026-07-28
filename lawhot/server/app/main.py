@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from . import __version__, db
 from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, OPENAI_API_KEY, PUBLIC_BASE_URL
+from .edition import ensure_today_edition, rebuild_edition_for_date, today_shanghai
 from .ingest import run_ingest_once
 from .web import CAT_LABEL, render_home, render_item, render_skill_index
 
@@ -91,9 +92,54 @@ def row_to_item(row: Any) -> dict[str, Any]:
     }
 
 
+def _match_q(row: Any, q: str | None) -> bool:
+    if not q:
+        return True
+    blob = f"{row['title'] or ''} {row['summary'] or ''} {row['source_name'] or ''}"
+    return q.lower() in blob.lower()
+
+
+def edition_rows(
+    *,
+    window: str,
+    category: str | None,
+    q: str | None,
+    limit: int,
+    offset: int,
+) -> list[Any]:
+    """精选 = 每日刊发名单（与首页一致）。24h→当日刊；7d→近 7 刊合并。"""
+    if window == "24h":
+        date = today_shanghai()
+        payload = db.get_edition(date)
+        if not payload or not (payload.get("item_ids") or []):
+            payload = ensure_today_edition() or payload
+        if not payload:
+            latest = db.latest_edition_date()
+            payload = db.get_edition(latest) if latest else None
+        ids = list((payload or {}).get("item_ids") or [])
+    else:
+        ids = []
+        for d in db.list_edition_dates(7):
+            payload = db.get_edition(d) or {}
+            ids.extend(payload.get("item_ids") or [])
+        ids = list(dict.fromkeys(ids))
+
+    rows = db.get_items_by_ids(ids)
+    if category:
+        rows = [r for r in rows if (r["category"] or "") == category]
+    if q:
+        rows = [r for r in rows if _match_q(r, q)]
+    return rows[offset : offset + limit]
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     db.init_db()
+    # 升级后若尚未跑 ingest，先用库内候选撑起今日刊，避免首页空白
+    try:
+        ensure_today_edition()
+    except Exception:
+        logger.exception("startup edition rebuild failed")
     global _ingest_task
     _ingest_task = asyncio.create_task(_ingest_loop())
 
@@ -118,13 +164,16 @@ async def _ingest_loop() -> None:
 
 @app.get("/healthz")
 async def healthz() -> dict[str, Any]:
+    ed_date = db.latest_edition_date()
+    ed = db.get_edition(ed_date) if ed_date else None
     return {
         "ok": True,
         "version": __version__,
         "stats": db.stats(),
         "proxy_configured": bool(LAWHOT_HTTP_PROXY),
-        "translate_configured": True,
         "openai_translate": bool(OPENAI_API_KEY),
+        "edition_date": ed_date,
+        "edition_counts": (ed or {}).get("counts"),
         "last_ingest_at": db.get_meta("last_ingest_at"),
         "last_ingest_stats": db.get_meta("last_ingest_stats"),
     }
@@ -148,16 +197,22 @@ async def items(
     except Exception:
         return problem(400, "invalid_cursor", "cursor is invalid for this query")
 
-    start = window_start(window).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    rows = db.list_items(
-        mode=mode,
-        window_start_iso=start,
-        by=by,
-        category=category,
-        q=q,
-        limit=limit + 1,
-        offset=offset,
-    )
+    if mode == "selected":
+        # 多取 1 条判断 hasMore
+        rows = edition_rows(
+            window=window, category=category, q=q, limit=limit + 1, offset=offset
+        )
+    else:
+        start = window_start(window).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        rows = db.list_items(
+            mode=mode,
+            window_start_iso=start,
+            by=by,
+            category=category,
+            q=q,
+            limit=limit + 1,
+            offset=offset,
+        )
     has_more = len(rows) > limit
     page_rows = rows[:limit]
     body = {
@@ -168,7 +223,10 @@ async def items(
             "q": q,
             "window": window,
             "by": by,
-            "ordering": "timelineDesc" if by == "timeline" else "publishedDesc",
+            "ordering": "edition" if mode == "selected" else (
+                "timelineDesc" if by == "timeline" else "publishedDesc"
+            ),
+            "edition": True if mode == "selected" else False,
         },
         "items": [row_to_item(r) for r in page_rows],
         "page": {
@@ -186,16 +244,7 @@ async def items(
 
 @app.get("/api/v1/hot-topics")
 async def hot_topics() -> dict[str, Any]:
-    start = window_start("24h").replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    rows = db.list_items(
-        mode="selected",
-        window_start_iso=start,
-        by="timeline",
-        category=None,
-        q=None,
-        limit=30,
-        offset=0,
-    )
+    rows = edition_rows(window="24h", category=None, q=None, limit=30, offset=0)
     # naive cluster by normalized title prefix
     buckets: dict[str, list[Any]] = {}
     for r in rows:
@@ -261,16 +310,7 @@ async def dailies_by_date(date: str) -> Any:
 
 @app.get("/feed.xml")
 async def feed_xml() -> PlainTextResponse:
-    start = window_start("7d").replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    rows = db.list_items(
-        mode="selected",
-        window_start_iso=start,
-        by="timeline",
-        category=None,
-        q=None,
-        limit=50,
-        offset=0,
-    )
+    rows = edition_rows(window="7d", category=None, q=None, limit=50, offset=0)
     items_xml = []
     for r in rows:
         link = f"{PUBLIC_BASE_URL}/items/{r['id']}"
@@ -305,7 +345,7 @@ async def home(request: Request) -> Any:
     if want_json:
         return {
             "name": "Legal Bulletins",
-            "tagline": "法律 AI 每日读本 · AI 驱动的法律与监管要闻",
+            "tagline": "法律科技频道 · AI 对法律行业的启迪",
             "disclaimer": "资讯聚合，非法律意见。重要引用请回原文核对。",
             "api": f"{PUBLIC_BASE_URL}/api/v1/items?mode=selected&window=24h&limit=10",
             "skill": f"{PUBLIC_BASE_URL}/lawhot-skill/",
@@ -317,57 +357,39 @@ async def home(request: Request) -> Any:
     category = request.query_params.get("category")
     if category and category not in CAT_LABEL:
         category = None
+    date = request.query_params.get("date") or today_shanghai()
+    payload = db.get_edition(date)
+    if not payload or not (payload.get("item_ids") or []):
+        payload = ensure_today_edition() or payload
+        date = (payload or {}).get("date") or date
+    if not payload:
+        latest = db.latest_edition_date()
+        date = latest or date
+        payload = db.get_edition(date) if latest else None
 
-    start = window_start("7d").replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    # 计数用（各分类卡片）
-    all_rows = db.list_items(
-        mode="selected",
-        window_start_iso=start,
-        by="timeline",
-        category=None,
-        q=None,
-        limit=200,
-        offset=0,
-    )
+    ids = list((payload or {}).get("item_ids") or [])
+    rows = db.get_items_by_ids(ids)
     counts: dict[str, int] = {k: 0 for k in CAT_LABEL}
-    for r in all_rows:
+    for r in rows:
         c = r["category"] or "insight"
         if c in counts:
             counts[c] += 1
+    if category:
+        rows = [r for r in rows if (r["category"] or "") == category]
 
-    rows = db.list_items(
-        mode="selected",
-        window_start_iso=start,
-        by="timeline",
-        category=category,
-        q=None,
-        limit=60,
-        offset=0,
-    )
-    # 默认流：法律科技/实务优先，监管靠后
-    priority = {
-        "legaltech": 0,
-        "practice": 1,
-        "litigation": 2,
-        "insight": 3,
-        "vendor": 4,
-        "regulation": 5,
+    edition_meta = {
+        "date": date,
+        "lead": (payload or {}).get("lead") or "",
+        "counts": (payload or {}).get("counts") or {},
     }
-    rows = list(rows)
-    rows.sort(key=lambda r: r["discovered_at"] or "", reverse=True)
-    if not category:
-        rows.sort(key=lambda r: priority.get(r["category"] or "", 9))
-        # 监管在默认首页最多露出 3 条
-        kept, reg_n = [], 0
-        for r in rows:
-            if (r["category"] or "") == "regulation":
-                if reg_n >= 3:
-                    continue
-                reg_n += 1
-            kept.append(r)
-        rows = kept
     return HTMLResponse(
-        render_home(rows[:36], stats, category=category, counts=counts)
+        render_home(
+            rows,
+            stats,
+            category=category,
+            counts=counts,
+            edition=edition_meta,
+        )
     )
 
 
@@ -392,11 +414,33 @@ async def agent_page() -> HTMLResponse:
     return HTMLResponse(render_skill_index())
 
 
-@app.post("/admin/ingest")
-async def admin_ingest(request: Request) -> Any:
+def _admin_ok(request: Request) -> bool:
     token = request.headers.get("x-admin-token") or request.query_params.get("token")
     expected = __import__("os").environ.get("LAWHOT_ADMIN_TOKEN", "")
-    if not expected or token != expected:
+    return bool(expected) and token == expected
+
+
+@app.post("/admin/ingest")
+async def admin_ingest(request: Request) -> Any:
+    if not _admin_ok(request):
+        return problem(401, "unauthorized", "missing or invalid admin token")
+    stats = await run_ingest_once()
+    return {"ok": True, "stats": stats}
+
+
+@app.post("/admin/rebuild-edition")
+async def admin_rebuild_edition(request: Request) -> Any:
+    """不重新抓取，仅用库内候选重编今日刊（升级后救急）。"""
+    if not _admin_ok(request):
+        return problem(401, "unauthorized", "missing or invalid admin token")
+    payload = rebuild_edition_for_date(today_shanghai())
+    return {"ok": True, "edition": payload.get("counts"), "date": payload.get("date")}
+
+
+@app.post("/admin/reenrich")
+async def admin_reenrich(request: Request) -> Any:
+    """抓取 + 强制重写摘要/译写 + 重编今日刊（修正截断译文）。"""
+    if not _admin_ok(request):
         return problem(401, "unauthorized", "missing or invalid admin token")
     stats = await run_ingest_once()
     return {"ok": True, "stats": stats}

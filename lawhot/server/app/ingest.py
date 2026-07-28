@@ -23,7 +23,9 @@ from .config import (
     USER_AGENT,
     source_needs_proxy,
 )
-from .translate import looks_chinese, needs_translation, translate_title_summary
+from .edition import rebuild_edition_for_date, today_shanghai
+from .enrich import bad_summary, enrich_item, make_api_client
+from .translate import looks_chinese, needs_translation
 from .web_cn import BUILTIN_CN_LISTS, fetch_cn_list
 
 logger = logging.getLogger("lawhot.ingest")
@@ -171,42 +173,77 @@ def _preserve_existing_translation(item: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-async def _maybe_translate_item(
-    item: dict[str, Any],
+async def _enrich_candidates(
     *,
-    api_client: httpx.AsyncClient | None,
-) -> dict[str, Any]:
-    if item.get("lang") == "zh":
-        return item
-    if not needs_translation(item.get("title") or "", item.get("summary"), item.get("lang")):
-        return item
-    before_title = item.get("title") or ""
-    zh_title, zh_summary = await translate_title_summary(
-        before_title,
-        item.get("summary"),
-        client=api_client,
+    direct_client: httpx.AsyncClient,
+    proxy_client: httpx.AsyncClient | None,
+    api_client: httpx.AsyncClient,
+) -> dict[str, int]:
+    """对高分候选补摘要/翻译，控制 API 用量。"""
+    start_iso = (datetime.now(timezone.utc) - timedelta(hours=40)).replace(
+        microsecond=0
+    ).isoformat().replace("+00:00", "Z")
+    rows = db.list_items(
+        mode="all",
+        window_start_iso=start_iso,
+        by="timeline",
+        category=None,
+        q=None,
+        limit=120,
+        offset=0,
     )
-    # 展示用中文；原文标题保留在 original_title
-    if item.get("original_title") in (None, "", before_title):
-        item["original_title"] = before_title
-    item["title"] = zh_title
-    item["summary"] = zh_summary
-    if zh_title != before_title or looks_chinese(zh_title):
-        raw = item.get("raw_json") or {}
-        if isinstance(raw, dict):
-            item["raw_json"] = {
-                **raw,
-                "translated": True,
-                "translate_engine": "openai" if OPENAI_API_KEY else "google",
-            }
-    return item
+    pool = []
+    for r in rows:
+        if not (r["selected"] or (r["score"] or 0) >= 68):
+            continue
+        try:
+            import json as _json
+
+            raw = _json.loads(r["raw_json"] or "{}") if isinstance(r["raw_json"], str) else (r["raw_json"] or {})
+        except Exception:
+            raw = {}
+        need = (
+            bad_summary(r["summary"])
+            or not raw.get("summarized")
+            or needs_translation(r["title"] or "", None, r["lang"])
+        )
+        if need:
+            pool.append(r)
+    pool.sort(key=lambda r: float(r["score"] or 0), reverse=True)
+    pool = pool[:40]
+
+    enriched = translated = 0
+    for r in pool:
+        item = dict(r)
+        try:
+            raw = item.get("raw_json")
+            if isinstance(raw, str):
+                import json
+
+                item["raw_json"] = json.loads(raw or "{}")
+        except Exception:
+            item["raw_json"] = {}
+
+        before_title = item.get("title") or ""
+        fetch_client = direct_client
+        if (item.get("lang") or "") != "zh" and proxy_client is not None:
+            fetch_client = proxy_client
+
+        item = await enrich_item(
+            item, fetch_client=fetch_client, api_client=api_client, force=True
+        )
+        if item.get("title") != before_title and looks_chinese(item.get("title") or ""):
+            translated += 1
+        if not bad_summary(item.get("summary")):
+            enriched += 1
+        db.upsert_item(item)
+    return {"enriched": enriched, "translated": translated, "enrich_pool": len(pool)}
 
 
 async def run_ingest_once() -> dict[str, Any]:
     sources = load_sources()
     fetched = 0
     stored = 0
-    translated = 0
     overseas = 0
     domestic = 0
     skipped_no_proxy = 0
@@ -217,7 +254,6 @@ async def run_ingest_once() -> dict[str, Any]:
 
     direct_client = httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=30.0)
     proxy_client: httpx.AsyncClient | None = None
-    api_client: httpx.AsyncClient | None = None
     if LAWHOT_HTTP_PROXY:
         proxy_client = httpx.AsyncClient(
             headers=headers,
@@ -229,12 +265,9 @@ async def run_ingest_once() -> dict[str, Any]:
     else:
         logger.warning("LAWHOT_HTTP_PROXY unset: overseas RSS will be skipped on mainland hosts")
 
-    # 翻译客户端：有 Key 走兼容 API；无 Key 时仍创建，便于后续扩展；Google 回退用同步库
-    api_client = httpx.AsyncClient(
-        timeout=60.0,
-        proxy=LAWHOT_HTTP_PROXY or None,
-        follow_redirects=True,
-    )
+    api_client = make_api_client()
+    enrich_stats: dict[str, int] = {}
+    edition: dict[str, Any] = {}
 
     try:
         for source in sources:
@@ -259,14 +292,15 @@ async def run_ingest_once() -> dict[str, Any]:
             fetched += len(batch)
             for item in batch:
                 item = _preserve_existing_translation(item)
-                before = item.get("title")
-                already_zh = looks_chinese(before or "")
-                if not already_zh:
-                    item = await _maybe_translate_item(item, api_client=api_client)
-                    if item.get("title") != before:
-                        translated += 1
                 db.upsert_item(item)
                 stored += 1
+
+        enrich_stats = await _enrich_candidates(
+            direct_client=direct_client,
+            proxy_client=proxy_client,
+            api_client=api_client,
+        )
+        edition = rebuild_edition_for_date(today_shanghai())
     finally:
         await direct_client.aclose()
         if proxy_client is not None:
@@ -277,80 +311,18 @@ async def run_ingest_once() -> dict[str, Any]:
         "sources": len(sources),
         "fetched": fetched,
         "stored": stored,
-        "translated": translated,
+        "translated": enrich_stats.get("translated", 0),
+        "enriched": enrich_stats.get("enriched", 0),
+        "enrich_pool": enrich_stats.get("enrich_pool", 0),
+        "edition_total": (edition or {}).get("counts", {}).get("total", 0),
+        "edition_zh": (edition or {}).get("counts", {}).get("zh", 0),
+        "edition_en": (edition or {}).get("counts", {}).get("en", 0),
         "overseas_attempted": overseas,
         "domestic_attempted": domestic,
         "skipped_no_proxy": skipped_no_proxy,
         "proxy_configured": bool(LAWHOT_HTTP_PROXY),
-        "translate_configured": True,  # OpenAI Key 或 Google 回退
         "openai_translate": bool(OPENAI_API_KEY),
     }
     db.set_meta("last_ingest_at", datetime.now(timezone.utc).isoformat())
     db.set_meta("last_ingest_stats", str(stats))
-    maybe_build_daily()
     return stats
-
-
-def maybe_build_daily() -> None:
-    today = datetime.now(SHANGHAI).date().isoformat()
-    if db.get_daily(today):
-        return
-    start = (
-        datetime.now(SHANGHAI)
-        .replace(hour=0, minute=0, second=0, microsecond=0)
-        .astimezone(timezone.utc)
-    )
-    start_iso = start.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    rows = db.list_items(
-        mode="selected",
-        window_start_iso=start_iso,
-        by="timeline",
-        category=None,
-        q=None,
-        limit=12,
-        offset=0,
-    )
-    if not rows:
-        start_iso = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(
-            microsecond=0
-        ).isoformat().replace("+00:00", "Z")
-        rows = db.list_items(
-            mode="selected",
-            window_start_iso=start_iso,
-            by="timeline",
-            category=None,
-            q=None,
-            limit=12,
-            offset=0,
-        )
-    if not rows:
-        return
-
-    # 日报也偏向法律科技/实务，监管少取
-    prefer = {"legaltech": 0, "practice": 1, "litigation": 2, "insight": 3, "vendor": 4, "regulation": 5}
-    rows = sorted(rows, key=lambda r: prefer.get(r["category"] or "", 9))
-
-    sections: dict[str, list[dict[str, Any]]] = {}
-    for r in rows:
-        cat = r["category"] or "insight"
-        sections.setdefault(cat, []).append(
-            {
-                "title": r["title"],
-                "summary": r["summary"],
-                "source": {"name": r["source_name"]},
-                "links": {
-                    "lawhot": f"{PUBLIC_BASE_URL}/items/{r['id']}",
-                    "original": r["original_url"],
-                },
-            }
-        )
-
-    payload = {
-        "date": today,
-        "title": f"LawHOT 日报 {today}",
-        "lead": "今日法律 AI 精选（自动生成初稿，非法律意见）。偏重法律科技、融资与实务，监管只留重点。",
-        "sections": [{"name": name, "items": items} for name, items in sections.items()],
-        "flashes": [],
-        "links": {"lawhot": f"{PUBLIC_BASE_URL}/daily/{today}"},
-    }
-    db.save_daily(today, payload)

@@ -11,7 +11,7 @@ SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 BRAND = "Legal Bulletins"
 BRAND_SUB = "法律 AI 每日读本"
-TAGLINE = "AI 驱动的法律与监管要闻，帮助法律人更快理解复杂世界。"
+TAGLINE = "法律科技频道：产品、融资与实务优先；监管只留最重要的一条。每日中文最多 10、英文最多 5。"
 
 CAT_LABEL = {
     "regulation": "监管",
@@ -36,7 +36,9 @@ NAV_ORDER = ("legaltech", "practice", "litigation", "insight", "vendor", "regula
 
 
 def _esc(s: Any) -> str:
-    return html.escape("" if s is None else str(s), quote=True)
+    # 先反转义，避免原文标题出现 Plaintiffs&#39; 这类实体
+    raw = html.unescape("" if s is None else str(s))
+    return html.escape(raw, quote=True)
 
 
 def _bj_time(iso: str | None) -> str:
@@ -518,8 +520,11 @@ def render_home(
     *,
     category: str | None = None,
     counts: dict[str, int] | None = None,
+    edition: dict[str, Any] | None = None,
 ) -> str:
-    del counts  # 顶栏不再展示篇数卡片，保留参数兼容 main.py
+    del counts  # 顶栏文本导航，保留参数兼容 main.py
+    edition = edition or {}
+    ed_counts = edition.get("counts") or {}
     cards = []
     for r in items:
         cat = CAT_LABEL.get(r["category"] or "", r["category"] or "未分类")
@@ -555,19 +560,28 @@ def render_home(
         cards.append('<p class="note">此分类暂无条目。可切换其他分类，或稍后再来。</p>')
 
     active_label = CAT_LABEL.get(category or "", "精选")
-    selected = int(stats.get("selected") or 0)
+    ed_date = edition.get("date") or ""
+    zh_n = int(ed_counts.get("zh") or 0)
+    en_n = int(ed_counts.get("en") or 0)
+    total_n = int(ed_counts.get("total") or len(items))
+    meta = (
+        f"{ed_date} · {active_label} · 中文 {zh_n} / 英文 {en_n} · 共 {total_n} 篇"
+        if ed_date
+        else f"{active_label} · 库内 {int(stats.get('selected') or 0)} 条"
+    )
+    lead = edition.get("lead") or TAGLINE
     body = f"""
 {_nav(category)}
 <section class="hero" aria-label="品牌">
   <div class="brand-wrap"><h1 class="brand">{_esc(BRAND)}</h1></div>
   <p class="brand-sub">{_esc(BRAND_SUB)}</p>
-  <p class="tagline">{_esc(TAGLINE)}</p>
+  <p class="tagline">{_esc(lead)}</p>
   <a class="cta" href="#feed">开始阅读 →</a>
 </section>
 <hr class="metal-rule" />
 <div class="section-head" id="feed">
-  <h2>今日精选</h2>
-  <div class="section-meta">{_esc(active_label)} · 库内 {selected} 条</div>
+  <h2>今日读本</h2>
+  <div class="section-meta">{_esc(meta)}</div>
 </div>
 <div class="feed">
 {''.join(cards)}

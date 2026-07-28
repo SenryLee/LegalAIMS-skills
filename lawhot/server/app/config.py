@@ -34,10 +34,18 @@ LAWHOT_NO_PROXY = os.environ.get(
     "localhost,127.0.0.1,.cn,cac.gov.cn,court.gov.cn,gov.cn,miit.gov.cn,npc.gov.cn,moj.gov.cn,legaldaily.com.cn",
 ).strip()
 
-# Optional: when set, future versions may call LLM for better summaries.
+# LLM（OpenAI 兼容）。推荐 DeepSeek：BASE_URL=https://api.deepseek.com MODEL=deepseek-v4-flash
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "").strip()
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip()
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com").strip()
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "deepseek-v4-flash").strip()
+
+
+def llm_http_proxy() -> str | None:
+    """DeepSeek 等国内可达接口直连；境外 OpenAI 才走抓取代理。"""
+    base = (OPENAI_BASE_URL or "").lower()
+    if "deepseek.com" in base or "dashscope" in base or "volces.com" in base:
+        return None
+    return LAWHOT_HTTP_PROXY or None
 
 
 def source_needs_proxy(source: dict) -> bool:

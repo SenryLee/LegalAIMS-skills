@@ -13,6 +13,7 @@ from .config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     OPENAI_MODEL,
+    llm_http_proxy,
 )
 
 logger = logging.getLogger("lawhot.translate")
@@ -44,6 +45,13 @@ def _apply_proxy_env() -> None:
         os.environ.setdefault(key, LAWHOT_HTTP_PROXY)
 
 
+def _chat_url() -> str:
+    base = (OPENAI_BASE_URL or "https://api.deepseek.com").rstrip("/")
+    if not base.endswith("/v1"):
+        base = base + "/v1"
+    return f"{base}/chat/completions"
+
+
 async def _translate_openai(
     title: str,
     summary: str | None,
@@ -52,8 +60,6 @@ async def _translate_openai(
 ) -> tuple[str, str | None] | None:
     if not OPENAI_API_KEY:
         return None
-    base = (OPENAI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
-    url = f"{base}/chat/completions"
     system = (
         "你是法律科技资讯编辑。把英文标题和摘要译成简洁、专业的中文，"
         "保留公司名/产品名/法案名常用译法或原文专名。"
@@ -61,7 +67,7 @@ async def _translate_openai(
     )
     user = f"标题：{title}\n摘要：{summary or ''}"
     payload = {
-        "model": OPENAI_MODEL or "gpt-4o-mini",
+        "model": OPENAI_MODEL or "deepseek-v4-flash",
         "temperature": 0.2,
         "messages": [
             {"role": "system", "content": system},
@@ -74,7 +80,7 @@ async def _translate_openai(
         "Content-Type": "application/json",
     }
     try:
-        resp = await client.post(url, headers=headers, json=payload)
+        resp = await client.post(_chat_url(), headers=headers, json=payload)
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
@@ -93,7 +99,6 @@ async def _translate_openai(
 
 
 def _translate_google(title: str, summary: str | None) -> tuple[str, str | None] | None:
-    """无 API Key 时的回退：经代理调用 Google 翻译。"""
     try:
         from deep_translator import GoogleTranslator
 
@@ -116,7 +121,6 @@ async def translate_title_summary(
     *,
     client: httpx.AsyncClient | None = None,
 ) -> tuple[str, str | None]:
-    """Return (title_zh, summary_zh). Failure → originals."""
     if not needs_translation(title, summary, None):
         return title, summary
 
@@ -124,7 +128,7 @@ async def translate_title_summary(
     if own_client:
         client = httpx.AsyncClient(
             timeout=60.0,
-            proxy=LAWHOT_HTTP_PROXY or None,
+            proxy=llm_http_proxy(),
             follow_redirects=True,
         )
     assert client is not None
