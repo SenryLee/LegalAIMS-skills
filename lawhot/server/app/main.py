@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from . import __version__, db
 from .config import FETCH_INTERVAL_SECONDS, LAWHOT_HTTP_PROXY, OPENAI_API_KEY, PUBLIC_BASE_URL
 from .edition import ensure_today_edition, rebuild_edition_for_date, today_shanghai
-from .ingest import run_ingest_once
+from .ingest import run_ingest_once, seed_sources_to_db
 from .web import CAT_LABEL, render_home, render_item, render_skill_index
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -135,6 +135,11 @@ def edition_rows(
 @app.on_event("startup")
 async def on_startup() -> None:
     db.init_db()
+    try:
+        seed = seed_sources_to_db()
+        logger.info("startup source seed %s", seed)
+    except Exception:
+        logger.exception("startup source seed failed")
     # 升级后若尚未跑 ingest，先用库内候选撑起今日刊，避免首页空白
     try:
         ensure_today_edition()
@@ -170,12 +175,60 @@ async def healthz() -> dict[str, Any]:
         "ok": True,
         "version": __version__,
         "stats": db.stats(),
+        "sources": db.count_sources(),
+        "sources_registry_version": db.get_meta("sources_registry_version"),
+        "sources_seeded_at": db.get_meta("sources_seeded_at"),
         "proxy_configured": bool(LAWHOT_HTTP_PROXY),
         "openai_translate": bool(OPENAI_API_KEY),
         "edition_date": ed_date,
         "edition_counts": (ed or {}).get("counts"),
         "last_ingest_at": db.get_meta("last_ingest_at"),
         "last_ingest_stats": db.get_meta("last_ingest_stats"),
+    }
+
+
+@app.get("/api/v1/sources")
+async def api_sources(
+    tier: str | None = Query(None, pattern="^(P0|P1|P2)$"),
+    channel: str | None = Query(None),
+    ingestible: bool = Query(False),
+) -> dict[str, Any]:
+    """Public registry snapshot (no secrets). Seeded from sources.v1.yaml."""
+    import json as _json
+
+    rows = db.list_sources(tier=tier, channel=channel, ingestible_only=ingestible)
+    items_out = []
+    for r in rows:
+        try:
+            region = _json.loads(r["region"] or "[]")
+        except Exception:
+            region = []
+        try:
+            tracks = _json.loads(r["tracks"] or "[]")
+        except Exception:
+            tracks = []
+        items_out.append(
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "lang": r["lang"],
+                "region": region,
+                "tier": r["tier"],
+                "channel": r["channel"],
+                "homepage": r["homepage"],
+                "feed": r["feed"],
+                "tracks": tracks,
+                "trust": r["trust"],
+                "ingestible": bool(r["ingestible"]),
+            }
+        )
+    return {
+        "schemaVersion": 1,
+        "counts": db.count_sources(),
+        "registryVersion": db.get_meta("sources_registry_version"),
+        "seededAt": db.get_meta("sources_seeded_at"),
+        "count": len(items_out),
+        "items": items_out,
     }
 
 
@@ -426,6 +479,14 @@ async def admin_ingest(request: Request) -> Any:
         return problem(401, "unauthorized", "missing or invalid admin token")
     stats = await run_ingest_once()
     return {"ok": True, "stats": stats}
+
+
+@app.post("/admin/seed-sources")
+async def admin_seed_sources(request: Request) -> Any:
+    """Re-read sources.v1.yaml into SQLite without fetching feeds."""
+    if not _admin_ok(request):
+        return problem(401, "unauthorized", "missing or invalid admin token")
+    return {"ok": True, "stats": seed_sources_to_db()}
 
 
 @app.post("/admin/rebuild-edition")

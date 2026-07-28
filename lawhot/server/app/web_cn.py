@@ -126,6 +126,34 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "channel": "web",
         "egress": "domestic",
     },
+    {
+        "id": "zh-fayan-bigdata-builtin",
+        "name": "中国司法大数据服务网",
+        "list_url": "https://data.court.gov.cn/",
+        "link_re": r'href=["\']([^"\']+)["\'][^>]*>([^<]{8,100})<',
+        "must_title": r"人工智能|智能|大数据|智慧法院|法研|算法|数字|信息化|法律科技",
+        "lang": "zh",
+        "region": ["cn"],
+        "tier": "P0",
+        "trust": "official",
+        "tracks": ["ai_x_law", "law_x_ai"],
+        "channel": "web",
+        "egress": "domestic",
+    },
+    {
+        "id": "zh-jiqizhixin-builtin",
+        "name": "机器之心",
+        "list_url": "https://www.jiqizhixin.com/",
+        "link_re": r'href=["\']([^"\']+)["\'][^>]*>([^<]{8,100})<',
+        "must_title": r"法律|合规|监管|版权|诉讼|司法|律师|安全|治理|开源许可|人工智能法",
+        "lang": "zh",
+        "region": ["cn"],
+        "tier": "P1",
+        "trust": "general_media",
+        "tracks": ["vendor_frontier", "law_x_ai"],
+        "channel": "web",
+        "egress": "domestic",
+    },
 ]
 
 
@@ -191,7 +219,7 @@ async def fetch_cn_list(
                 "score": score,
                 "selected": selected,
                 "track": ",".join(source.get("tracks") or []),
-                "lang": "zh",
+                "lang": source.get("lang") or "zh",
                 "raw_json": {"list_url": list_url},
             }
         )

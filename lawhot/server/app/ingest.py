@@ -31,37 +31,141 @@ from .web_cn import BUILTIN_CN_LISTS, fetch_cn_list
 logger = logging.getLogger("lawhot.ingest")
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
+# RSS status values we will attempt to fetch
+_RSS_OK = {"ok_rss", "pending_probe", "ok_web"}
+# Hard skip — known-unusable for automated fetch this cycle
+_SKIP_CHANNELS = {"wechat", "x", "newsletter", "api"}
+_SKIP_REACHABILITY = {"awaiting_owner", "needs_wechat_id", "needs_x_access", "needs_url", "missing"}
 
-def load_sources() -> list[dict[str, Any]]:
-    raw = yaml.safe_load(Path(SOURCES_YAML).read_text(encoding="utf-8"))
-    sources = raw.get("sources") or []
+
+def _yaml_sources() -> list[dict[str, Any]]:
+    path = Path(SOURCES_YAML)
+    if not path.exists():
+        logger.error("sources yaml missing: %s", path)
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return list(raw.get("sources") or [])
+
+
+def is_ingestible(source: dict[str, Any]) -> bool:
+    """Whether this source can be fetched by the current MVP pipeline (RSS/web list)."""
+    if source.get("tier") not in {"P0", "P1"}:
+        return False
+    if source.get("enabled") is False:
+        return False
+    channel = source.get("channel")
+    if channel in _SKIP_CHANNELS:
+        return False
+    status = (source.get("status") or {}).get("reachability") or ""
+    if status in _SKIP_REACHABILITY:
+        return False
+    if channel == "rss":
+        # Require feed URL. Allow ok_rss / pending_probe / empty / needs_recheck.
+        if not source.get("feed"):
+            return False
+        if status and status not in {
+            "ok_rss",
+            "pending_probe",
+            "ok_web",
+            "needs_recheck",
+            "flaky_ssl",
+            "needs_cn_network",
+        }:
+            return False
+        return True
+    if channel == "web":
+        return bool(source.get("list_url") or source.get("homepage"))
+    if channel == "newsletter":
+        # treat as web homepage scrape when URL present
+        return bool(source.get("homepage") or source.get("list_url"))
+    return False
+
+
+def load_sources(*, ingestible_only: bool = True) -> list[dict[str, Any]]:
+    """Load YAML sources for fetch. By default only MVP-ingestible P0/P1 channels."""
+    sources = _yaml_sources()
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
 
     for s in sources:
-        if s.get("tier") not in {"P0", "P1"}:
-            continue
         sid = s.get("id") or ""
-        channel = s.get("channel")
-        if channel == "rss":
-            if not s.get("feed"):
-                continue
-            status = (s.get("status") or {}).get("reachability")
-            if status and status not in {"ok_rss"}:
-                continue
-            out.append(s)
-            seen.add(sid)
-        elif channel == "web" and (s.get("list_url") or s.get("homepage")):
-            # yaml 里显式配置的中文网页源
-            out.append(s)
-            seen.add(sid)
+        if not sid:
+            continue
+        if ingestible_only and not is_ingestible(s):
+            continue
+        if not ingestible_only and s.get("tier") not in {"P0", "P1", "P2"}:
+            continue
+        out.append(s)
+        seen.add(sid)
 
-    # 合并内置中文列表源（加强国内覆盖）
+    # 合并内置中文列表源（加强国内覆盖；YAML 同 id 优先）
     for s in BUILTIN_CN_LISTS:
-        if s["id"] not in seen and s.get("tier") in {"P0", "P1"}:
+        if s["id"] in seen:
+            continue
+        if ingestible_only and not is_ingestible(s):
+            continue
+        if s.get("tier") in {"P0", "P1"}:
             out.append(s)
             seen.add(s["id"])
     return out
+
+
+def seed_sources_to_db() -> dict[str, int]:
+    """Upsert full registry (P0–P2) into SQLite sources table; mark ingestible flags."""
+    all_sources = _yaml_sources()
+    # include builtins not in yaml
+    seen = {s.get("id") for s in all_sources}
+    for s in BUILTIN_CN_LISTS:
+        if s["id"] not in seen:
+            all_sources.append(s)
+
+    seeded = 0
+    ingestible_n = 0
+    for s in all_sources:
+        sid = s.get("id")
+        if not sid:
+            continue
+        flag = is_ingestible(s)
+        if flag:
+            ingestible_n += 1
+        db.upsert_source(
+            {
+                "id": sid,
+                "name": s.get("name") or sid,
+                "lang": s.get("lang"),
+                "region": s.get("region") or [],
+                "tier": s.get("tier") or "P2",
+                "channel": s.get("channel") or "web",
+                "homepage": s.get("homepage"),
+                "feed": s.get("feed"),
+                "list_url": s.get("list_url"),
+                "tracks": s.get("tracks") or [],
+                "trust": s.get("trust"),
+                "egress": s.get("egress"),
+                "enabled": True,
+                "ingestible": flag,
+                "status": s.get("status") or {},
+                "notes": s.get("notes"),
+                "raw": {
+                    "must_title": s.get("must_title"),
+                    "link_re": s.get("link_re"),
+                    "alt_feed": s.get("alt_feed"),
+                    "wechat_name": s.get("wechat_name"),
+                },
+            }
+        )
+        seeded += 1
+
+    db.set_meta("sources_seeded_at", datetime.now(timezone.utc).isoformat())
+    db.set_meta("sources_registry_version", "0.2")
+    counts = db.count_sources()
+    logger.info(
+        "seeded sources: yaml+builtin=%s db=%s ingestible=%s",
+        seeded,
+        counts.get("enabled"),
+        counts.get("ingestible"),
+    )
+    return {"seeded": seeded, "ingestible": ingestible_n, **counts}
 
 
 def _parse_dt(value: Any) -> str | None:
@@ -241,7 +345,8 @@ async def _enrich_candidates(
 
 
 async def run_ingest_once() -> dict[str, Any]:
-    sources = load_sources()
+    seed_stats = seed_sources_to_db()
+    sources = load_sources(ingestible_only=True)
     fetched = 0
     stored = 0
     overseas = 0
@@ -284,10 +389,12 @@ async def run_ingest_once() -> dict[str, Any]:
                 domestic += 1
 
             channel = source.get("channel")
-            if channel == "web":
+            if channel in {"web", "newsletter"}:
                 batch = await fetch_cn_list(client, source, entry_id_fn=_entry_id)
-            else:
+            elif channel == "rss" or source.get("feed"):
                 batch = await fetch_feed(client, source)
+            else:
+                batch = []
 
             fetched += len(batch)
             for item in batch:
@@ -309,6 +416,9 @@ async def run_ingest_once() -> dict[str, Any]:
 
     stats = {
         "sources": len(sources),
+        "sources_seeded": seed_stats.get("seeded", 0),
+        "sources_registry": seed_stats.get("enabled", 0),
+        "sources_ingestible": seed_stats.get("ingestible", 0),
         "fetched": fetched,
         "stored": stored,
         "translated": enrich_stats.get("translated", 0),

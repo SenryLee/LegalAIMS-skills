@@ -22,11 +22,14 @@ INCLUDE_PATTERNS = [
     r"(copyright|lawsuit|诉讼|著作权|知识产权|infringement).{0,40}(AI|ChatGPT|Claude|OpenAI|Anthropic)",
     r"(AI|ChatGPT|Claude).{0,40}(liability|malpractice|hallucination|判决|证据|court|律师)",
     r"生成式人工智能|深度合成|法律 AI|AI 法律|智能起草|智能合同",
+    r"system card|model card|preparedness framework|model spec|alignment|economic index",
+    r"AI RMF|AI Office|AISI|Copyright Office|AI Safety Institute",
 ]
 
 REGULATION_PATTERNS = [
     r"AI Act|artificial intelligence act|网信办|Federal Register|GDPR|FTC|SEC|条例|办法|立法|监管令",
     r"个人信息保护法|数据出境|深度合成.*规定|人工智能.*办法",
+    r"NIST|AI Office|Copyright Office|AISI|preparedness|GPAI|high-risk",
 ]
 
 # 综合科技媒体噪声：机器人/具身/芯片融资等
@@ -142,7 +145,8 @@ def relevance_ok(title: str, summary: str, source: dict[str, Any]) -> bool:
         return _hit(
             [
                 r"legal|law|court|律师|法律|合规|诉讼|版权|copyright|liability|"
-                r"safety|alignment|governance|policy|security|contract|eDiscovery"
+                r"safety|alignment|governance|policy|security|contract|eDiscovery|"
+                r"system card|model card|preparedness|model spec|economic index|responsible"
             ],
             text,
         )

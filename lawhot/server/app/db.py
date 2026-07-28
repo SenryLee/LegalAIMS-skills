@@ -60,6 +60,29 @@ def init_db() -> None:
               key TEXT PRIMARY KEY,
               value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS sources (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              lang TEXT,
+              region TEXT,
+              tier TEXT NOT NULL,
+              channel TEXT NOT NULL,
+              homepage TEXT,
+              feed TEXT,
+              list_url TEXT,
+              tracks TEXT,
+              trust TEXT,
+              egress TEXT,
+              enabled INTEGER NOT NULL DEFAULT 1,
+              ingestible INTEGER NOT NULL DEFAULT 0,
+              status_json TEXT,
+              notes TEXT,
+              raw_json TEXT,
+              updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_sources_tier ON sources(tier, enabled);
+            CREATE INDEX IF NOT EXISTS idx_sources_channel ON sources(channel, ingestible);
             """
         )
 
@@ -296,13 +319,123 @@ def get_meta(key: str) -> str | None:
         return row["value"] if row else None
 
 
+def upsert_source(row: dict[str, Any]) -> None:
+    now = _utc_now()
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO sources (
+              id, name, lang, region, tier, channel, homepage, feed, list_url,
+              tracks, trust, egress, enabled, ingestible, status_json, notes,
+              raw_json, updated_at
+            ) VALUES (
+              :id, :name, :lang, :region, :tier, :channel, :homepage, :feed, :list_url,
+              :tracks, :trust, :egress, :enabled, :ingestible, :status_json, :notes,
+              :raw_json, :updated_at
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              name=excluded.name,
+              lang=excluded.lang,
+              region=excluded.region,
+              tier=excluded.tier,
+              channel=excluded.channel,
+              homepage=excluded.homepage,
+              feed=excluded.feed,
+              list_url=excluded.list_url,
+              tracks=excluded.tracks,
+              trust=excluded.trust,
+              egress=excluded.egress,
+              enabled=excluded.enabled,
+              ingestible=excluded.ingestible,
+              status_json=excluded.status_json,
+              notes=excluded.notes,
+              raw_json=excluded.raw_json,
+              updated_at=excluded.updated_at
+            """,
+            {
+                "id": row["id"],
+                "name": row.get("name") or row["id"],
+                "lang": row.get("lang"),
+                "region": json.dumps(row.get("region") or [], ensure_ascii=False),
+                "tier": row.get("tier") or "P2",
+                "channel": row.get("channel") or "web",
+                "homepage": row.get("homepage"),
+                "feed": row.get("feed"),
+                "list_url": row.get("list_url"),
+                "tracks": json.dumps(row.get("tracks") or [], ensure_ascii=False),
+                "trust": row.get("trust"),
+                "egress": row.get("egress"),
+                "enabled": 1 if row.get("enabled", True) else 0,
+                "ingestible": 1 if row.get("ingestible") else 0,
+                "status_json": json.dumps(row.get("status") or {}, ensure_ascii=False),
+                "notes": row.get("notes"),
+                "raw_json": json.dumps(row.get("raw") or {}, ensure_ascii=False),
+                "updated_at": now,
+            },
+        )
+
+
+def list_sources(
+    *,
+    tier: str | None = None,
+    channel: str | None = None,
+    ingestible_only: bool = False,
+) -> list[sqlite3.Row]:
+    where: list[str] = ["enabled = 1"]
+    params: list[Any] = []
+    if tier:
+        where.append("tier = ?")
+        params.append(tier)
+    if channel:
+        where.append("channel = ?")
+        params.append(channel)
+    if ingestible_only:
+        where.append("ingestible = 1")
+    sql = f"""
+      SELECT * FROM sources
+      WHERE {' AND '.join(where)}
+      ORDER BY
+        CASE tier WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END,
+        channel, id
+    """
+    with connect() as conn:
+        return list(conn.execute(sql, params))
+
+
+def count_sources() -> dict[str, int]:
+    with connect() as conn:
+        total = conn.execute("SELECT COUNT(*) AS c FROM sources").fetchone()["c"]
+        enabled = conn.execute(
+            "SELECT COUNT(*) AS c FROM sources WHERE enabled=1"
+        ).fetchone()["c"]
+        ingestible = conn.execute(
+            "SELECT COUNT(*) AS c FROM sources WHERE enabled=1 AND ingestible=1"
+        ).fetchone()["c"]
+        p0 = conn.execute(
+            "SELECT COUNT(*) AS c FROM sources WHERE enabled=1 AND tier='P0'"
+        ).fetchone()["c"]
+        p1 = conn.execute(
+            "SELECT COUNT(*) AS c FROM sources WHERE enabled=1 AND tier='P1'"
+        ).fetchone()["c"]
+    return {
+        "total": int(total),
+        "enabled": int(enabled),
+        "ingestible": int(ingestible),
+        "p0": int(p0),
+        "p1": int(p1),
+    }
+
+
 def stats() -> dict[str, Any]:
     with connect() as conn:
         total = conn.execute("SELECT COUNT(*) AS c FROM items").fetchone()["c"]
         selected = conn.execute("SELECT COUNT(*) AS c FROM items WHERE selected=1").fetchone()["c"]
+    src = count_sources()
     return {
         "items": total,
         "selected": selected,
+        "sources": src.get("enabled", 0),
+        "sources_ingestible": src.get("ingestible", 0),
         "db_path": str(DB_PATH),
         "db_exists": Path(DB_PATH).exists(),
     }
