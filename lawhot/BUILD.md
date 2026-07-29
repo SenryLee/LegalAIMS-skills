@@ -111,7 +111,7 @@ lawhot/
   references/errors.md
   references/sources.md          # 已有
   references/sources.v1.yaml     # 已有
-  install.sh                     # 二期
+  install.sh                     # ✅ Agent 本机安装（SHA 校验）
 ```
 
 **注意：** 在中台 API 未上线前，不要发布「假装能查实时资讯」的 Skill；可先保持本目录为「筹备包」。

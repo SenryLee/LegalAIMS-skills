@@ -104,7 +104,28 @@ curl -sS "https://hot.fachuiai.com/api/v1/sources?ingestible=true" | head -c 300
 `upgrade-sources.sh` 会：
 
 1. `git fetch` **main**（经 ghfast 镜像，无需 GitHub 登录）  
-2. `docker compose build && up -d`（**不**重启宿主机 docker）  
-3. 调本机 `admin/seed-sources` + `admin/ingest`（用 `.env` 里已有的 `LAWHOT_ADMIN_TOKEN`）
+2. **同步公网 Skill 静态包**到 `/opt/lawhot/lawhot-skill/`（`install.sh`、`manifest.sha256`、`SKILL.md` 等）  
+3. `docker compose build && up -d`（**不**重启宿主机 docker）  
+4. 调本机 `admin/seed-sources` + `admin/ingest`（用 `.env` 里已有的 `LAWHOT_ADMIN_TOKEN`）
 
 不需要你输入任何账号密码。若提示密码，说明粘贴串了命令或当前不是 root 会话，先 `whoami` 看是否为 `root`。
+
+---
+
+## 只刷新 Skill 安装包（不重建 Docker）
+
+代码已 push、只想让 `https://hot.fachuiai.com/lawhot-skill/*` 立刻更新时：
+
+```bash
+screen -S lawhot || true
+curl -fL --connect-timeout 15 --max-time 90 -o /tmp/publish-skill.sh \
+  https://ghfast.top/https://raw.githubusercontent.com/SenryLee/LegalAIMS-skills/main/lawhot/deploy/publish-skill.sh
+bash /tmp/publish-skill.sh
+```
+
+验收：
+
+```bash
+curl -sI https://hot.fachuiai.com/lawhot-skill/install.sh | head -5
+curl -s https://hot.fachuiai.com/lawhot-skill/manifest.sha256
+```

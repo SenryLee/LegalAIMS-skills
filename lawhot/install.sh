@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # Legal Bulletins / LawHOT Agent Skill installer.
 # Downloads and validates the complete runtime package before one directory swap.
+#
+# 默认从 https://hot.fachuiai.com/lawhot-skill/ 拉取；
+# 若国内/临时不可达，自动回退 jsDelivr / ghfast GitHub 镜像。
 
 set -euo pipefail
 
-SITE="https://hot.fachuiai.com"
+# 可覆盖：export LAWHOT_SKILL_PACKAGE=https://hot.fachuiai.com/lawhot-skill
+PACKAGE_BASES=(
+  "${LAWHOT_SKILL_PACKAGE:-https://hot.fachuiai.com/lawhot-skill}"
+  "https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/lawhot"
+  "https://ghfast.top/https://raw.githubusercontent.com/SenryLee/LegalAIMS-skills/main/lawhot"
+)
+
 TARGET=""
 INSTALL_DIR=""
 MIGRATE_LEGACY=0
@@ -15,28 +24,25 @@ COMMITTED=0
 LEGACY_PATHS=()
 LEGACY_BACKUPS=()
 LEGACY_COUNT=0
+ACTIVE_PACKAGE_BASE=""
 
 usage() {
   cat <<'EOF'
 Usage:
-  install.sh --target <claude|codex|gemini|copilot|opencode|agents> [--migrate-legacy]
+  install.sh --target <claude|codex|gemini|copilot|opencode|agents|grok> [--migrate-legacy]
   install.sh --dir <absolute-or-home-relative-path>
 
 Targets:
-  codex|gemini|copilot|opencode|agents  ~/.agents/skills/lawhot
-  claude                                ~/.claude/skills/lawhot
+  codex|gemini|copilot|opencode|agents|grok  ~/.agents/skills/lawhot
+  claude                                     ~/.claude/skills/lawhot
 
 Examples:
-  bash install.sh --target codex
-  bash install.sh --target agents --migrate-legacy
+  bash <(curl -fsSL https://hot.fachuiai.com/lawhot-skill/install.sh) --target claude
+  bash <(curl -fsSL https://hot.fachuiai.com/lawhot-skill/install.sh) --target agents
   bash install.sh --dir "$HOME/.agents/skills/lawhot"
 
 The installer never uses sudo. It downloads the complete runtime package,
 validates every SHA-256, then replaces one explicit target directory.
-
-If an older Legal Bulletins (LawHOT) Skill ran this script without a target, do not guess or
-retry with sudo. Open https://hot.fachuiai.com/lawhot-skill/README.md and give
-its recommended update prompt to the Agent that owns the current Skill folder.
 EOF
 }
 
@@ -60,7 +66,7 @@ validate_target_path() {
       ;;
   esac
   [[ "$INSTALL_DIR" = /* ]] || fail "--dir must be absolute or start with ~/"
-  [[ "$(basename "$INSTALL_DIR")" == "aihot" ]] || {
+  [[ "$(basename "$INSTALL_DIR")" == "lawhot" ]] || {
     fail "Skill directory must be named lawhot: $INSTALL_DIR"
   }
   [[ ! -f "$INSTALL_DIR" ]] || fail "target is a file, not a Skill directory: $INSTALL_DIR"
@@ -69,8 +75,8 @@ validate_target_path() {
     skill_frontmatter_has_line "$INSTALL_DIR/SKILL.md" "name: lawhot" || {
       fail "target contains a different Skill and will not be overwritten: $INSTALL_DIR"
     }
-  elif [[ -d "$INSTALL_DIR" ]] && [[ -n "$(ls -A "$INSTALL_DIR")" ]]; then
-    fail "target is a non-empty directory without an Legal Bulletins (LawHOT) SKILL.md: $INSTALL_DIR"
+  elif [[ -d "$INSTALL_DIR" ]] && [[ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null || true)" ]]; then
+    fail "target is a non-empty directory without a LawHOT SKILL.md: $INSTALL_DIR"
   fi
 }
 
@@ -130,6 +136,25 @@ restore_on_failure() {
   fi
 }
 
+download_to() {
+  local url="$1"
+  local out="$2"
+  curl -fsSL --connect-timeout 10 --max-time 45 "$url" -o "$out"
+}
+
+fetch_manifest() {
+  local base candidate
+  for base in "${PACKAGE_BASES[@]}"; do
+    candidate="$TMP_ROOT/manifest.try"
+    if download_to "$base/manifest.sha256" "$candidate" 2>/dev/null && [[ -s "$candidate" ]]; then
+      ACTIVE_PACKAGE_BASE="$base"
+      mv "$candidate" "$MANIFEST_FILE"
+      return 0
+    fi
+  done
+  fail "could not download manifest.sha256 from any package mirror"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target)
@@ -181,7 +206,7 @@ case "$TARGET" in
       exit 2
     }
     ;;
-  codex|gemini|copilot|opencode|agents)
+  codex|gemini|copilot|opencode|agents|grok)
     INSTALL_DIR="$HOME/.agents/skills/lawhot"
     SHARED_TARGET=1
     ;;
@@ -207,6 +232,7 @@ if [[ "$SHARED_TARGET" -eq 1 ]]; then
     "$HOME/.gemini/skills/lawhot"
     "$HOME/.copilot/skills/lawhot"
     "$HOME/.config/opencode/skills/lawhot"
+    "$HOME/.grok/skills/lawhot"
   )
   for legacy in "${LEGACY_CANDIDATES[@]}"; do
     [[ "$legacy" != "$INSTALL_DIR" ]] || continue
@@ -223,7 +249,7 @@ if [[ "$SHARED_TARGET" -eq 1 ]]; then
   done
 
   if [[ "$LEGACY_COUNT" -gt 0 && "$MIGRATE_LEGACY" -eq 0 ]]; then
-    echo "[ERR] legacy Legal Bulletins (LawHOT) Skill copies found; refusing to create a duplicate:" >&2
+    echo "[ERR] legacy LawHOT Skill copies found; refusing to create a duplicate:" >&2
     for ((i = 0; i < LEGACY_COUNT; i++)); do
       echo "  - ${LEGACY_PATHS[$i]}" >&2
     done
@@ -242,19 +268,21 @@ mkdir -p "$PACKAGE_DIR"
 trap restore_on_failure EXIT
 
 echo ""
-echo "Installing Legal Bulletins (LawHOT) Agent Skill"
+echo "Installing LawHOT (Legal Bulletins) Agent Skill"
 echo "  target: $TARGET"
 echo "  path:   $INSTALL_DIR"
 echo ""
 
-curl -fsSL --max-time 30 "$SITE/lawhot-skill/manifest.sha256" -o "$MANIFEST_FILE"
-[[ -s "$MANIFEST_FILE" ]] || fail "downloaded manifest is empty"
+fetch_manifest
+echo "  package: $ACTIVE_PACKAGE_BASE"
+echo ""
 
 FILE_COUNT=0
 SEEN_FILES=$'\n'
 while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ -z "$line" || "$line" =~ ^# ]] && continue
   [[ "$line" =~ ^([0-9a-f]{64})[[:space:]][[:space:]]([A-Za-z0-9._/-]+)$ ]] || {
-    fail "invalid manifest line"
+    fail "invalid manifest line: $line"
   }
   expected_hash="${BASH_REMATCH[1]}"
   relative_path="${BASH_REMATCH[2]}"
@@ -272,7 +300,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 
   output_path="$PACKAGE_DIR/$relative_path"
   mkdir -p "$(dirname "$output_path")"
-  curl -fsSL --max-time 30 "$SITE/lawhot-skill/$relative_path" -o "$output_path"
+  download_to "$ACTIVE_PACKAGE_BASE/$relative_path" "$output_path" || {
+    fail "download failed: $relative_path from $ACTIVE_PACKAGE_BASE"
+  }
   actual_hash="$(hash_file "$output_path")"
   [[ "$actual_hash" == "$expected_hash" ]] || {
     fail "SHA-256 mismatch for $relative_path; existing installation was not changed"
@@ -280,7 +310,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   chmod 0644 "$output_path"
 done < "$MANIFEST_FILE"
 
-[[ "$FILE_COUNT" -eq 5 ]] || fail "runtime package must contain exactly 5 files"
+[[ "$FILE_COUNT" -eq 5 ]] || fail "runtime package must contain exactly 5 files (got $FILE_COUNT)"
 
 for required in \
   SKILL.md \
@@ -295,7 +325,7 @@ done
 skill_frontmatter_has_line "$PACKAGE_DIR/SKILL.md" "name: lawhot" || {
   fail "downloaded SKILL.md failed identity validation"
 }
-skill_frontmatter_has_line "$PACKAGE_DIR/SKILL.md" "license: MIT" || {
+skill_frontmatter_has_line "$PACKAGE_DIR/SKILL.md" "license: MIT. See LICENSE" || {
   fail "downloaded SKILL.md failed license validation"
 }
 grep -q '^interface:$' "$PACKAGE_DIR/agents/openai.yaml" || {
@@ -338,4 +368,4 @@ echo "Next: restart your Agent or start a new conversation, then ask:"
 echo "  过去 24 小时最重要的法律 AI 动态是什么？"
 echo ""
 echo "Success means the Agent finds exactly one lawhot Skill, states the time window,"
-echo "and links titles to Legal Bulletins (LawHOT)."
+echo "and links titles to Legal Bulletins (hot.fachuiai.com)."

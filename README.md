@@ -2,263 +2,188 @@
 
 **中文** · [English](./README.en.md)
 
-# 🧰 Khazix Skills
+# LegalAIMS Skills
 
-#### 我自己每天在用的一些 AI Skill，都开源在这里
+#### 法锤智能 · 可直接安装的 Agent Skills 合集
 
 [![License](https://img.shields.io/badge/License-MIT-3B82F6?style=for-the-badge)](./LICENSE)
-[![Skills](https://img.shields.io/badge/Skills-5-10B981?style=for-the-badge)](#-skills)
+[![Skills](https://img.shields.io/badge/Skills-6-10B981?style=for-the-badge)](#-skills)
 [![AgentSkills](https://img.shields.io/badge/AgentSkills-Standard-8B5CF6?style=for-the-badge)](https://agentskills.io)
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-D97706?style=flat-square&logo=anthropic&logoColor=white)
 ![Codex](https://img.shields.io/badge/Codex-Skill-10B981?style=flat-square&logo=openai&logoColor=white)
-![40+ Agents](https://img.shields.io/badge/40%2B_Agents-Compatible-3B82F6?style=flat-square)
+![Grok](https://img.shields.io/badge/Grok-Skill-000000?style=flat-square)
 
 </div>
 
-都是在自己项目里跑通了一段时间，确实省事，才搬出来开源的。没什么花活，就是几个挺实用的东西。
+仓库：https://github.com/SenryLee/LegalAIMS-skills  
 
-这里的每个 Skill 都是 Agent 能直接加载的结构化指令集，遵循 [Agent Skills](https://agentskills.io) 开放标准。Claude Code、Codex、Qoder、Kimi Code、iFlow、CodeBuddy、Cursor 等 40+ 支持该标准的 Agent 都能装。
+每个 Skill 都是 Agent 能直接加载的结构化指令集，遵循 [Agent Skills](https://agentskills.io) 开放标准。Claude Code、Codex、Cursor、Grok 等支持该标准的 Agent 都能装。
 
 ---
 
-## 📋 目录
+## 🚀 怎么装（复制即用）
 
-| 名字 | 一句话 | 讲解 |
+### 方式 A · 丢给 Agent（最省事）
+
+```text
+帮我安装这个 skill：https://github.com/SenryLee/LegalAIMS-skills/tree/main/<skill-name>
+```
+
+把 `<skill-name>` 换成目录名，例如 `lawhot`、`neat-freak`。
+
+### 方式 B · 终端一键（Bash / macOS / Linux / WSL）
+
+**装任意 skill（通用）：**
+
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill lawhot --target claude
+```
+
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill neat-freak --target agents
+```
+
+`--target` 可选：`claude` → `~/.claude/skills/<name>`；`agents` / `codex` / `grok` 等 → `~/.agents/skills/<name>`。
+
+**LawHOT / Legal Bulletins（推荐专用安装器，带 SHA-256 校验）：**
+
+```bash
+# Claude Code
+bash <(curl -fsSL https://hot.fachuiai.com/lawhot-skill/install.sh) --target claude
+
+# Codex / Grok / 通用 agents 目录
+bash <(curl -fsSL https://hot.fachuiai.com/lawhot-skill/install.sh) --target agents
+```
+
+**丢给 Agent 的完整提示词（LawHOT）：**
+
+```text
+请先审阅并安装 Legal Bulletins（LawHOT）Skill：
+https://hot.fachuiai.com/lawhot-skill/README.md
+
+先告诉我当前平台、准备写入的目录和会安装的文件；不要使用 sudo，不要覆盖其它 Skill。
+安装完成后用「过去 24 小时最重要的法律 AI 动态是什么？」验证。
+```
+
+---
+
+## 📋 Skills 目录
+
+| 名字 | 一句话 | 复制安装 |
 |---|---|---|
-| 💽 [**storage-analyzer（清理垃圾）**](#-storage-analyzer清理垃圾) | 一句话扫描 Mac / Windows 整机磁盘，三色分级给清理决策，网页上一键移废纸篓 | [公众号文章](https://mp.weixin.qq.com/s/NyOMIlOD986OC4SI9vmxlA) |
-| 🔥 [**aihot（AI HOT 资讯查询）**](#-aihotai-hot-资讯查询) | 让 Agent 用一句话拿到 aihot.virxact.com 每天的 AI HOT 日报和全部 AI 动态，无需 API Key | [aihot.virxact.com](https://aihot.virxact.com) |
-| 🧹 [**neat-freak（洁癖）**](#-neat-freak洁癖) | 干完活跑一下 `/neat`，自动对齐项目文档、CLAUDE.md、Agent 记忆，并审计规则有没有被执行 | [公众号文章](https://mp.weixin.qq.com/s/tg1wd-iN2gWHWhXdY0faeg) |
-| 🔭 [**hv-analysis（横纵分析法）**](#-hv-analysis横纵分析法) | 想搞懂一个产品/公司/概念是怎么回事，丢给它，给你一份万字 PDF 研究报告 | [公众号文章](https://mp.weixin.qq.com/s/Y_uRMYBmdLWUPnz_ac7jWA) |
-| ✍️ [**khazix-writer（卡兹克写作）**](#-khazix-writer卡兹克写作) | 装上之后，Agent 用我的口吻和节奏写公众号长文 | [公众号文章](https://mp.weixin.qq.com/s/AtxGrii_K-nzkwUM9SNhEg) |
+| ⚖️ [**lawhot**](./lawhot/) | 法律 AI 资讯 / Legal Bulletins（`hot.fachuiai.com`） | [专用 install](https://hot.fachuiai.com/lawhot-skill/install.sh) |
+| 🔥 [**aihot**](./aihot/) | AI HOT 资讯（`aihot.virxact.com`） | 见目录 README |
+| 🧹 [**neat-freak**](./neat-freak/) | 任务收尾：对齐文档 / CLAUDE.md / Agent 记忆 | `--skill neat-freak` |
+| 🔭 [**hv-analysis**](./hv-analysis/) | 横纵分析法 · 万字 PDF 研究报告 | `--skill hv-analysis` |
+| ✍️ [**khazix-writer**](./khazix-writer/) | 公众号长文写作口吻 | `--skill khazix-writer` |
+| 💽 [**storage-analyzer**](./storage-analyzer/) | Mac / Windows 磁盘清理决策 | `--skill storage-analyzer` |
 
 ---
 
-## 📦 安装方式
+## ✨ Skills 说明
 
-在 Claude Code、Codex 等支持 Agent Skills 的工具里，直接说：
+### ⚖️ lawhot · Legal Bulletins（法律 AI 资讯）
+
+查询 [hot.fachuiai.com](https://hot.fachuiai.com) 的精选、公开动态、热点与日报。无需 API Key。
+
+**触发示例**
 
 ```
-帮我安装这个 skill：https://github.com/KKKKhazix/khazix-skills/tree/main/<skill-name>
+今天法律 AI 圈有什么
+最近一周 LegalTech
+AI Act 相关动态
+法律 AI 日报
 ```
 
-把 `<skill-name>` 换成你想装的那个，比如 `neat-freak`、`hv-analysis`、`khazix-writer`。Agent 会自己 clone 到对应目录，不用你操心路径。
+**信源**：`lawhot/references/sources.v1.yaml` **v0.2**（约 110+ 源，排除付费墙）。  
+线上验收：`curl -s https://hot.fachuiai.com/healthz` 应见 `"sources_registry_version":"0.2"`。
 
-你的 Agent 不支持 Skill 也没关系：把对应目录的 `SKILL.md` 全文下载下来，当成项目规则文件（或直接贴进对话）让 Agent 照着执行，效果一致。
+→ [安装 README](./lawhot/README.md) · [SKILL.md](./lawhot/SKILL.md) · [信源说明](./lawhot/references/sources.md)
 
 ---
 
-## ✨ Skills
+### 🔥 aihot · AI HOT 资讯
 
-<a id="-skills"></a>
+原 [aihot.virxact.com](https://aihot.virxact.com) 查询 skill，可与 lawhot 互补（通用 AI vs 法律 AI）。
 
-<table>
-<tr><td>
-
-### 💽 storage-analyzer（清理垃圾）
-
-> *"清 Mac 垃圾这件事，过去十几年都靠 CleanMyMac 这种翻译层软件。现在一个 skill 就够了。"*
-
-随口跟 Agent 说一句"帮我看看存储"或"C 盘满了"，它会扫一遍整机磁盘，在浏览器里打开一份**交互式 HTML 报告**：磁盘总览、占用 Top 5、清理优先级、🟢🟡🔴 三色分级清单。命令一键复制，也可以直接点按钮移到废纸篓 / 删除（每次都有二次确认弹窗）。
-
-**它和 CleanMyMac 的区别**
-
-CleanMyMac 是个写死规则的软件，扫到一个 3.8G 的 Chrome 文件夹只会告诉你"用户缓存文件，可删"——但你不知道里面到底是什么、删了哪些网站要重新登录。
-
-这个 skill 由 Agent 驱动，每一项都给你**具体路径 + 类型说明 + 删了的影响 + 推荐处置方式**。比如那 97 GB 的 UUID Container 它会告诉你是 B 站离线视频缓存、建议在 B 站客户端里清而不是手删。
-
-**三色分级是核心**
-
-- 🟢 **绿灯** — 纯缓存、临时文件，删了自动再生。可以让 Agent 一键清
-- 🟡 **黄灯** — 含用户数据（离线视频、下载、项目代码）。只给"在访达打开"和"移废纸篓"，让你自己决定，不给直接删
-- 🔴 **红灯** — 运行中应用核心数据、系统文件。解释为什么不能动，最多给"打开文件夹"，永远不给删除按钮
-
-**铁律**
-
-全程只读扫描，绝不擅自动手。删除操作必须你在浏览器上点按钮 + 浏览器弹框二次确认才执行。本地服务跑在 127.0.0.1 + 随机端口 + token，安全模型上三套白名单分级（绿灯能删、橙灯只能移废纸篓、红灯只能打开）。
-
-**🌐 跨平台**：macOS 完整实测；Windows 代码就绪（多盘符已支持），首次用建议留个心眼
-
-**怎么触发**
-
-```
-帮我看看存储
-C 盘满了
-清理一下磁盘
-看下电脑空间
-storage analysis
+```bash
+bash <(curl -fsSL https://aihot.virxact.com/aihot-skill/install.sh) --target claude
 ```
 
-→ [SKILL.md](./storage-analyzer/SKILL.md) · [公众号讲解](https://mp.weixin.qq.com/s/NyOMIlOD986OC4SI9vmxlA)
-
-</td></tr>
-</table>
-
-<table>
-<tr><td>
-
-### 🔥 aihot（AI HOT 资讯查询）
-
-> *"AI 圈一天发太多东西，等我反应过来已经过气了——干脆让 Agent 帮我每天扫一遍。"*
-
-让支持 SKILL.md 的 Agent 用最自然的中文一句话拿到 [aihot.virxact.com](https://aihot.virxact.com) 每天的 AI HOT 日报和全部 AI 动态。无需 API Key、无需配 MCP server。
-
-**它能做什么**
-
-- 拉今日 / 指定日期的 AI HOT 日报（按主题打包好的成品）
-- 拉精选条目流（每日精编候选池）
-- 按分类拉条目（模型 / 产品 / 行业 / 论文 / 技巧）
-- 按时间窗口拉（最近 N 天）
-- 关键词 / 公司 / 主题搜索（"OpenAI 最近发的"、"Sora 相关"、"RAG 论文"）
-
-**怎么触发**
-
-```
-今天 AI 圈有什么新东西
-看一下 5 月 6 号的 AI 日报
-最近一周的 AI 论文
-看下精选条目
-最近 OpenAI 有什么发布
-```
-
-**🌐 跨平台**：Claude Code · Codex CLI · Cursor · Gemini CLI · OpenCode · Cline · Windsurf
-
-**🇨🇳 国内直链**（无需翻墙）：
-
-```
-curl -fsSL https://aihot.virxact.com/aihot-skill/install.sh | bash
-```
-
-→ [SKILL.md](./aihot/SKILL.md) · [aihot.virxact.com](https://aihot.virxact.com) · [接入指南](https://aihot.virxact.com/agent)
-
-</td></tr>
-</table>
-
-<table>
-<tr><td>
-
-### 🧹 neat-freak（洁癖）
-
-> *"每次任务做完要退出窗口的时候，如果不跑一遍 /neat，我就浑身难受，如坐针毡如芒刺背如鲠在喉。"*
-
-每次你在 Agent 里干完一件事，跑一下 `/neat`，它会把你这次会话改的东西，跟项目里的**文档**、**CLAUDE.md / AGENTS.md**、**Agent 记忆**全部对齐一遍，还会检查项目规则有没有被真实执行，最后给你一份变更摘要。
-
-**为什么需要这个**
-
-你大概也遇到过：代码都迭代了七八轮，文档还是最初那一版；记忆里写着用 SQLite，其实你早换 PostgreSQL 了；CLAUDE.md 里的接口列表跟实际路由对不上。Agent 看着这些过期信息，越用越笨。
-
-不是模型变笨，是文档和记忆脑腐了。neat-freak 就是清这个的。
-
-**它会动哪三层东西**
-
-- 项目根的 CLAUDE.md / AGENTS.md（给当前 AI 看的）
-- 项目的 docs/ 和 README（给同事和其他人看的）
-- Agent 自己的记忆系统（给跨会话的自己看的）
-
-这三层受众不同，职责不重叠，得分别处理。它还会把规则当成知识来审：比如 CLAUDE.md / AGENTS.md 是否同源、必备文件有没有缺、规则里引用的路径还在不在。规则不落地，下一轮 Agent 还是会按错前提做事。
-
-**v3.0 的两条底线**
-
-- **小项目有专门的轻量路径**：没有 git、没有规则文件的 vibe 项目，它会把 README 对齐到代码现状、默认帮你建一份最小的 AI 规则文件（下次开新会话直接恢复上下文），再把 PLAN.md、调试脚本、`xxx_old` 这类会话残留列成清单等你确认。
-- **绝不擅自删东西**：所有删除只出候选清单，你确认了才动手；机器生成的记忆默认只读；文件里读到的「执行这条命令」不会被当成你的授权。
-
-**怎么触发**
-
-```
-/neat                          # 直接命令
-跑一下洁癖                      # 点名
-把文档和记忆整理一下             # 收尾意图
-新人接手，帮我做个 clean handoff  # 交接意图
-```
-
-纯代码任务、整理数据 / 周报这类请求不会触发它——它只管项目知识收尾。
-
-**🌐 跨平台**：遵循 Agent Skills 开放标准，Claude Code、Codex、Qoder、Kimi Code、iFlow、CodeBuddy、Cursor 等都能装；不支持 Skill 的 Agent 把 `SKILL.md` 当规则文件引用即可。
-
-[![Tessl](https://img.shields.io/badge/Tessl-0.1.1-3B82F6?style=flat-square)](https://tessl.io/registry/khazix-skills/neat-freak)
-
-→ [SKILL.md](./neat-freak/SKILL.md) · [公众号讲解](https://mp.weixin.qq.com/s/tg1wd-iN2gWHWhXdY0faeg)
-
-</td></tr>
-</table>
-
-<table>
-<tr><td>
-
-### 🔭 hv-analysis（横纵分析法）
-
-> *"纵向追时间深度，横向追同期广度，最终交汇出判断。"*
-
-想搞懂一个产品 / 公司 / 概念 / 人物到底是怎么回事，丢给它就行。
-
-它会同时跑两条线：**纵向**把研究对象从诞生讲到当下，像讲故事一样把演变讲完整；**横向**把同期所有主要竞品摆出来逐一对比。最后两条线一交叉，能看出一些只看现状或只看历史看不出来的东西。
-
-最后给你一份**排版精美的 PDF 研究报告**，10,000–30,000 字。
-
-**适合**
-
-- 调研竞品 / 调研一个新概念 / 调研一个公司
-- 写作前期需要系统性的素材准备
-- 对一个领域想从零搞懂
-
-**不适合**
-
-- 单纯查个名词解释 — 那种问题用普通对话就行，杀鸡用牛刀
-- 写公众号文章 — 那个用下面的 khazix-writer
-
-[![ClawHub](https://img.shields.io/badge/ClawHub-v1.0.0-EC4899?style=flat-square)](https://clawhub.ai)
-[![Tessl](https://img.shields.io/badge/Tessl-published-3B82F6?style=flat-square)](https://tessl.io/registry/khazix-skills/hv-analysis)
-
-→ [SKILL.md](./hv-analysis/SKILL.md) · [公众号讲解](https://mp.weixin.qq.com/s/Y_uRMYBmdLWUPnz_ac7jWA)
-
-</td></tr>
-</table>
-
-<table>
-<tr><td>
-
-### ✍️ khazix-writer（卡兹克写作）
-
-> *"有见识的普通人在认真聊一件打动他的事。"*
-
-我自己写公众号的那套写作 skill。装上之后，Agent 写出来的东西就是我的口吻、我的节奏、我的禁忌词全在里面。
-
-**适合**
-
-你看过我公众号「数字生命卡兹克」的文章，觉得风格还行，想让你的 AI 也照着这个调子写东西。比如丢一篇 PDF / 一段语音转文字 / 一个新闻链接，让它写成长文。
-
-**不适合**
-
-你想要的是"通用好文笔"。这个 skill 是有立场的——它会**拒绝**写「赋能、抓手、闭环」、**拒绝**「首先...其次」、**拒绝**「在当今 AI 快速发展的时代」、**拒绝**「说白了 / 本质上 / 换句话说」。如果你的目标读者就好这一口，那这个 skill 不适合你。
-
-**它会做什么**
-
-- 完整的写作风格规则（节奏、叙事、判断、修辞）
-- 四层自检体系（结构、节奏、内容、文字）
-- 一套风格示例库（可以让 AI 直接对照）
-
-[![ClawHub](https://img.shields.io/badge/ClawHub-v1.0.0-EC4899?style=flat-square)](https://clawhub.ai)
-[![Tessl](https://img.shields.io/badge/Tessl-0.1.1-3B82F6?style=flat-square)](https://tessl.io/registry/khazix-skills/khazix-writer)
-
-→ [SKILL.md](./khazix-writer/SKILL.md) · [公众号讲解](https://mp.weixin.qq.com/s/AtxGrii_K-nzkwUM9SNhEg)
-
-</td></tr>
-</table>
+→ [aihot/README.md](./aihot/README.md)
 
 ---
 
-## 🌟 关于
+### 🧹 neat-freak · 洁癖
 
-我是数字生命卡兹克，虚实传媒创始人，努力地分享一些有趣的 AI 干货，也愿我们永远对世界保持好奇。
+任务做完跑 `/neat`，对齐项目文档、CLAUDE.md、Agent 记忆，审计规则是否落地。
 
-这些 skill 都是我自己每天在用的，开源出来如果对你有帮助，给个 ⭐ 就行。有问题或建议，欢迎在 Issues / Discussions 里说一声。
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill neat-freak --target claude
+```
+
+→ [neat-freak/SKILL.md](./neat-freak/SKILL.md)
 
 ---
 
-<div align="center">
+### 🔭 hv-analysis · 横纵分析法
 
-[MIT License](./LICENSE) · 自由使用 / 修改 / 再分发
+纵向时间线 + 横向竞品，输出长篇 PDF 研究报告。
 
-Made by [@KKKKhazix](https://github.com/KKKKhazix)
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill hv-analysis --target claude
+```
 
-</div>
+→ [hv-analysis/SKILL.md](./hv-analysis/SKILL.md)
+
+---
+
+### ✍️ khazix-writer · 写作
+
+固定口吻与禁忌词的公众号长文 skill。
+
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill khazix-writer --target claude
+```
+
+→ [khazix-writer/SKILL.md](./khazix-writer/SKILL.md)
+
+---
+
+### 💽 storage-analyzer · 清理垃圾
+
+整机磁盘扫描 + 三色清理决策 HTML 报告。
+
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/SenryLee/LegalAIMS-skills@main/install-skill.sh) \
+  --skill storage-analyzer --target claude
+```
+
+→ [storage-analyzer/SKILL.md](./storage-analyzer/SKILL.md)
+
+---
+
+## 🔧 运维备注（LawHOT 中台）
+
+内容中台部署在 `lawhot/server` + `lawhot/deploy`，与「装 Skill 到本机 Agent」是两件事：
+
+| 场景 | 文档 |
+|---|---|
+| 首次 Workbench 部署 | [lawhot/deploy/FULL-DEPLOY.md](./lawhot/deploy/FULL-DEPLOY.md) |
+| 小升级（代码 + seed 信源） | [lawhot/deploy/UPGRADE.md](./lawhot/deploy/UPGRADE.md) |
+| 只刷新公网 Skill 安装包 | [lawhot/deploy/publish-skill.sh](./lawhot/deploy/publish-skill.sh) |
+
+---
+
+## 关于
+
+本仓库由 [SenryLee](https://github.com/SenryLee) / 法锤智能维护。  
+部分通用 skill 源自 [KKKKhazix/khazix-skills](https://github.com/KKKKhazix/khazix-skills)（MIT），已接入本仓库并改安装入口到 `SenryLee/LegalAIMS-skills`。
+
+[MIT License](./LICENSE)
