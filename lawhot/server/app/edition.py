@@ -127,7 +127,7 @@ def edition_eligible(row: Any) -> bool:
         )
         if not hard:
             return False
-        if re.search(r"展演活动|学术研讨会|宣传周|调研行|座谈会", title):
+        if re.search(r"展演活动|学术研讨会|宣传周|调研行|座谈会|司法护航.*产业|行稳致远", title):
             return False
     return True
 
