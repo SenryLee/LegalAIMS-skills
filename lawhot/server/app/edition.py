@@ -1,4 +1,10 @@
-"""每日固定刊：中文最多 10、英文最多 5；监管最多 1（可为 0）；宁缺毋滥。"""
+"""每日固定刊：中文最多 8、英文最多 6；监管最多 1（可为 0）；宁缺毋滥。
+
+刊发原则（对齐 AIHOT「高门槛精选」）：
+- 必须通过法律×AI 交叉门；官媒泛 AI / 安全攻防噪声不得进刊
+- 英文 LegalTech 垂直源优先；中文官媒严格限流
+- 单源上限更低，避免正义网/法治日报/安全内参占满
+"""
 
 from __future__ import annotations
 
@@ -9,18 +15,21 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from . import db
+from .classify import intersection_ok
 from .config import PUBLIC_BASE_URL
 from .translate import looks_chinese
 
 logger = logging.getLogger("lawhot.edition")
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
-CN_QUOTA = 10
-EN_QUOTA = 5
+CN_QUOTA = 8
+EN_QUOTA = 6
 REGULATION_MAX = 1
-PER_SOURCE_MAX = 3  # 单源上限；法律科技垂直源可多占一点
+PER_SOURCE_MAX = 2  # 默认单源上限
+PER_SOURCE_MAX_VERTICAL = 3  # 法律科技垂直源可多占
+STRICT_CN_MAX = 2  # 官媒/综合法治媒体整刊上限
 
-# 政务/官媒：可进候选，但刊发分大幅降低
+# 政务/官媒/综合法治：可进候选，但刊发分大幅降低且整刊限流
 GOV_SOURCE_IDS = {
     "zh-cac",
     "zh-cac-news",
@@ -39,6 +48,8 @@ GOV_SOURCE_IDS = {
     "zh-jcrb",
     "zh-secrss",
     "zh-secrss-yaml",
+    "zh-fayan-bigdata",
+    "zh-fayan-bigdata-builtin",
 }
 
 # 法律科技主源：刊发加分
@@ -53,15 +64,18 @@ LEGALTECH_SOURCE_IDS = {
     "en-legora-blog",
     "en-lexis-insights",
     "en-above-the-law",
+    "en-legaltech-hub",
+    "en-iapp",
     "zh-lawyeah",
     "zh-autopilot-law",
     "zh-legaltech-media",
     "zh-fadada-news",
     "zh-esign-news",
+    "zh-ciplawyer-ai",
 }
 
 _PLACEHOLDER_SUM = re.compile(
-    r"^(来源：|列表页摘录|暂无摘要|详情见原文)", re.I
+    r"^(来源：|列表页摘录|暂无摘要|详情见原文|摘要生成中)", re.I
 )
 
 
@@ -88,6 +102,36 @@ def summary_ok(summary: str | None) -> bool:
     return True
 
 
+def edition_eligible(row: Any) -> bool:
+    """刊发硬门：法律×AI 交叉；摘要占位不挡冷启动，但占位会在 require_summary 时过滤。"""
+    title = row["title"] or ""
+    summary = row["summary"] or ""
+    if not title.strip():
+        return False
+    sid = row["source_id"] or ""
+    # 英文法律垂直源：交叉可稍松（源本身法律向）
+    if sid in LEGALTECH_SOURCE_IDS and not is_zh_item(row):
+        return True
+    if not intersection_ok(title, summary):
+        return False
+    # 官媒/综合法治：还要硬信号（产品/诉讼/正式规则/法律科技），挡「司法护航产业」空话
+    if sid in GOV_SOURCE_IDS:
+        text = f"{title}\n{summary}"
+        hard = re.search(
+            r"法律科技|法律大模型|合同审查|智能起草|eDiscovery|Legal AI|法律 AI|"
+            r"律师.*人工智能|人工智能.*律师|法律服务.*产品|生成式人工智能.*(办法|规定)|"
+            r"深度合成.*规定|AI Act|起诉|判决|System Card|数字检察.*大模型|"
+            r"智能辅助办案|法律监督.*人工智能|人工智能.*法律监督",
+            text,
+            re.I,
+        )
+        if not hard:
+            return False
+        if re.search(r"展演活动|学术研讨会|宣传周|调研行|座谈会", title):
+            return False
+    return True
+
+
 def edition_score(row: Any) -> float:
     score = float(row["score"] or 0)
     sid = row["source_id"] or ""
@@ -97,34 +141,43 @@ def edition_score(row: Any) -> float:
     text = f"{title}\n{summary}"
 
     if sid in LEGALTECH_SOURCE_IDS:
-        score += 12
+        score += 14
     if sid in GOV_SOURCE_IDS:
-        score -= 18
+        score -= 28
     if cat in {"legaltech", "practice"}:
-        score += 8
+        score += 10
     if cat == "litigation":
-        score += 6
+        score += 8
     if cat == "vendor":
         score += 4
     if cat == "regulation":
-        score -= 10
+        score -= 12
     if summary_ok(summary):
         score += 6
     else:
-        score -= 8
+        score -= 10
 
     # 法律科技硬信号
     if re.search(
         r"legaltech|法律科技|法律大模型|合同审查|eDiscovery|CoCounsel|Harvey|Legora|"
-        r"律所.*AI|AI.*律所|法律 AI|Legal AI|智慧.*律师|智能起草|尽调",
+        r"律所.*AI|AI.*律所|法律 AI|Legal AI|智慧.*律师|智能起草|尽调|"
+        r"法律服务.*产品|System Card|Model Spec",
         text,
         re.I,
     ):
-        score += 10
+        score += 12
 
-    # 纯政务/会议噪声
-    if re.search(r"召开|座谈会|调研组|学习贯彻|表彰大会|参观考察", title):
-        score -= 12
+    # 纯政务/会议/宣传噪声
+    if re.search(
+        r"召开|座谈会|调研组|学习贯彻|表彰大会|参观考察|宣传周|调研行|"
+        r"展演活动|学术研讨会|世赛|算力|外交部.*人工智能",
+        title,
+    ):
+        score -= 22
+
+    # 英文优先一点，纠偏国内官媒占满
+    if not is_zh_item(row) and sid in LEGALTECH_SOURCE_IDS:
+        score += 8
 
     return score
 
@@ -134,16 +187,26 @@ def _norm_title(title: str) -> str:
     return t[:28]
 
 
+def _source_cap(sid: str) -> int:
+    if sid in LEGALTECH_SOURCE_IDS:
+        return PER_SOURCE_MAX_VERTICAL
+    if sid in GOV_SOURCE_IDS:
+        return 1
+    return PER_SOURCE_MAX
+
+
 def pick_edition_rows(
     candidates: list[Any], *, require_summary: bool = True
 ) -> list[Any]:
     ranked = sorted(candidates, key=edition_score, reverse=True)
     picked: list[Any] = []
-    cn_n = en_n = reg_n = 0
+    cn_n = en_n = reg_n = strict_cn_n = 0
     per_src: dict[str, int] = {}
     seen_titles: set[str] = set()
 
     for row in ranked:
+        if not edition_eligible(row):
+            continue
         if require_summary and not summary_ok(row["summary"]):
             continue
         if not (row["title"] or "").strip():
@@ -153,7 +216,9 @@ def pick_edition_rows(
         nt = _norm_title(row["title"] or "")
         if nt and nt in seen_titles:
             continue
-        if per_src.get(sid, 0) >= PER_SOURCE_MAX:
+        if per_src.get(sid, 0) >= _source_cap(sid):
+            continue
+        if sid in GOV_SOURCE_IDS and strict_cn_n >= STRICT_CN_MAX:
             continue
         if cat == "regulation":
             if reg_n >= REGULATION_MAX:
@@ -173,6 +238,8 @@ def pick_edition_rows(
             seen_titles.add(nt)
         if cat == "regulation":
             reg_n += 1
+        if sid in GOV_SOURCE_IDS:
+            strict_cn_n += 1
         if zh:
             cn_n += 1
         else:
@@ -217,8 +284,8 @@ def build_edition_payload(date: str, rows: list[Any]) -> dict[str, Any]:
         "date": date,
         "title": f"Legal Bulletins 每日读本 {date}",
         "lead": (
-            f"本日刊发 {len(rows)} 条（中文 {cn} / 英文 {en}，上限 10+5；"
-            "监管最多 1 条，宁缺毋滥）。偏重法律科技、融资与实务。"
+            f"本日刊发 {len(rows)} 条（中文 {cn} / 英文 {en}，上限 {CN_QUOTA}+{EN_QUOTA}；"
+            "监管最多 1 条，官媒综合源整刊限流）。只收法律×AI 交叉硬信号，偏重 LegalTech、诉讼与实务。"
         ),
         "quota": {"zh": CN_QUOTA, "en": EN_QUOTA, "regulation_max": REGULATION_MAX},
         "counts": {"zh": cn, "en": en, "total": len(rows)},
@@ -243,9 +310,14 @@ def rebuild_edition_for_date(date: str | None = None) -> dict[str, Any]:
         limit=300,
         offset=0,
     )
-    pool = [r for r in candidates if (r["selected"] or (r["score"] or 0) >= 66)]
+    pool = [
+        r
+        for r in candidates
+        if (r["selected"] or (r["score"] or 0) >= 70) and edition_eligible(r)
+    ]
     if not pool:
-        pool = list(candidates)
+        # 冷启动：仍要求交叉门，避免官媒泛 AI 回流
+        pool = [r for r in candidates if edition_eligible(r)]
 
     picked = pick_edition_rows(pool, require_summary=True)
     # 冷启动：摘要尚未润色时，允许无摘要先出刊，避免首页空白

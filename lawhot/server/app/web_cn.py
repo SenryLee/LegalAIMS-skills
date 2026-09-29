@@ -12,14 +12,14 @@ from .classify import classify_category, relevance_ok, score_item, should_select
 
 logger = logging.getLogger("lawhot.web_cn")
 
-# 内置中文列表：法律科技优先；政务源降为 P1 且关键词更严
+# 内置中文列表：法律科技优先；官媒/综合源降级且标题必须法律×AI 硬交叉
 BUILTIN_CN_LISTS: list[dict[str, Any]] = [
     {
         "id": "zh-lawyeah",
         "name": "律页科技",
         "list_url": "https://www.lawyeah.cn/article",
         "link_re": r'href=["\'](https?://www\.lawyeah\.cn/[^"\']+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"AI|人工智能|法律|律师|律所|大模型|智能|合同|科技",
+        "must_title": r"AI|人工智能|法律|律师|律所|大模型|合同|LegalTech|法律科技|Harvey|Legora",
         "lang": "zh",
         "region": ["cn"],
         "tier": "P0",
@@ -33,7 +33,7 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "智律云博客",
         "list_url": "https://autopilot.law/blog",
         "link_re": r'href=["\'](https?://autopilot\.law/[^"\']+)["\'][^>]*>([^<]{8,120})<',
-        "must_title": r"AI|法律|律师|Harvey|Legora|合同|律所|大模型|智能|Copilot",
+        "must_title": r"AI|法律|律师|Harvey|Legora|合同|律所|大模型|Copilot|LegalTech|法律科技",
         "lang": "zh",
         "region": ["cn"],
         "tier": "P0",
@@ -47,7 +47,8 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "中国知识产权律师网",
         "list_url": "https://www.ciplawyer.cn/channels/zh/",
         "link_re": r'href=["\'](https?://www\.ciplawyer\.cn/[^"\']+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"人工智能|AI|大模型|算法|生成式|深度合成|训练数据|著作权|版权",
+        "must_title": r"(人工智能|AI|大模型|生成式|深度合成).{0,20}(著作权|版权|训练数据|侵权)|"
+        r"(著作权|版权|训练数据).{0,20}(人工智能|AI|大模型|生成式)",
         "lang": "zh",
         "region": ["cn"],
         "tier": "P1",
@@ -61,10 +62,12 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "法治网 / 法治日报",
         "list_url": "http://www.legaldaily.com.cn/",
         "link_re": r'href=["\']([^"\']+)["\'][^>]*>([^<]{8,80})<',
-        "must_title": r"法律科技|法律大模型|智能合同|合同审查|律师.*AI|AI.*律师|法律 AI|人工智能.*律师",
+        "must_title": r"法律科技|法律大模型|智能合同|合同审查|律师.*AI|AI.*律师|法律 AI|"
+        r"人工智能.*律师|人工智能.*法律服务|法律监督.*人工智能|"
+        r"生成式人工智能.*(办法|规定|监管)|深度合成.*规定",
         "lang": "zh",
         "region": ["cn"],
-        "tier": "P1",
+        "tier": "P2",
         "trust": "official",
         "tracks": ["ai_x_law"],
         "channel": "web",
@@ -75,10 +78,11 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "中国法院网",
         "list_url": "https://www.chinacourt.org/index.shtml",
         "link_re": r'href=["\'](https?://www\.chinacourt\.org/article/detail/\d+/[^"\']+\.shtml)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"法律科技|人工智能.*审判|智能辅助|法律大模型|AI.*法官|生成式",
+        "must_title": r"法律科技|人工智能.*审判|智能辅助.*办案|法律大模型|AI.*法官|"
+        r"生成式人工智能|智慧法院.*大模型",
         "lang": "zh",
         "region": ["cn"],
-        "tier": "P1",
+        "tier": "P2",
         "trust": "official",
         "tracks": ["ai_x_law"],
         "channel": "web",
@@ -103,10 +107,12 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "安全内参",
         "list_url": "https://www.secrss.com/",
         "link_re": r'href=["\'](https?://www\.secrss\.com/articles/\d+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"法律|合规|诉讼|律师|人工智能法|数据出境|个人信息.*AI|大模型.*合规",
+        "must_title": r"(法律|合规|诉讼|律师|司法|数据出境|个人信息).{0,24}(人工智能|大模型|AI)|"
+        r"(人工智能|大模型|AI).{0,24}(法律|合规|诉讼|律师|监管|人工智能法)|"
+        r"人工智能法|大模型.*合规|数据出境.*AI",
         "lang": "zh",
         "region": ["cn"],
-        "tier": "P1",
+        "tier": "P2",
         "trust": "specialty_media",
         "tracks": ["law_x_ai", "ai_x_law"],
         "channel": "web",
@@ -117,7 +123,7 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "36氪",
         "list_url": "https://www.36kr.com/information/AI/",
         "link_re": r'href=["\'](/p/\d+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"法律|律师|律所|法务|合规|诉讼|版权|LegalTech|法律科技|合同审查",
+        "must_title": r"法律|律师|律所|法务|合规|诉讼|版权|LegalTech|法律科技|合同审查|Harvey|Legora",
         "lang": "zh",
         "region": ["cn"],
         "tier": "P1",
@@ -131,10 +137,10 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "中国司法大数据服务网",
         "list_url": "https://data.court.gov.cn/",
         "link_re": r'href=["\']([^"\']+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"人工智能|智能|大数据|智慧法院|法研|算法|数字|信息化|法律科技",
+        "must_title": r"法律大模型|人工智能.*司法|智慧法院.*AI|法研.*大模型|智能辅助办案|法律科技",
         "lang": "zh",
         "region": ["cn"],
-        "tier": "P0",
+        "tier": "P2",
         "trust": "official",
         "tracks": ["ai_x_law", "law_x_ai"],
         "channel": "web",
@@ -145,7 +151,8 @@ BUILTIN_CN_LISTS: list[dict[str, Any]] = [
         "name": "机器之心",
         "list_url": "https://www.jiqizhixin.com/",
         "link_re": r'href=["\']([^"\']+)["\'][^>]*>([^<]{8,100})<',
-        "must_title": r"法律|合规|监管|版权|诉讼|司法|律师|安全|治理|开源许可|人工智能法",
+        "must_title": r"(法律|合规|监管|版权|诉讼|司法|律师|人工智能法).{0,20}(AI|人工智能|大模型)|"
+        r"(AI|人工智能|大模型).{0,20}(法律|合规|监管|版权|诉讼|司法|律师)",
         "lang": "zh",
         "region": ["cn"],
         "tier": "P1",

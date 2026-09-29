@@ -5,10 +5,12 @@
 #         The Information、SemiAnalysis 付费层等）；公开网页/RSS/官方 PDF 可进。
 # status.reachability：存量多为 2026-07-25 探测；v0.2 新增源默认 pending_probe。
 
-version: "0.2"
-updated: "2026-07-28"
+version: "0.3"
+updated: "2026-09-29"
 product: lawhot
 changelog:
+  - "v0.3：收紧中文官媒/综合源（正义网/法治日报/安全内参）must_title 与层级；"
+  - "      强制法律×AI 交叉；对齐 AIHOT 高门槛精选，纠偏官媒泛 AI 占满精选。"
   - "v0.2：扩 OpenAI/Anthropic 研究子频道；补 NIST/EU AI Office/UK AISI/版权局；"
   - "      Legaltech Hub、Import AI、Daily Papers；中文法研/智合等；明确排除付费源。"
 
@@ -740,47 +742,48 @@ sources:
     name: 法治日报 / 法制网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: http://www.legaldaily.com.cn/
     list_url: http://www.legaldaily.com.cn/
-    must_title: 人工智能|大模型|算法|智能|生成式|深度合成|法律科技|智慧法院|数字检察|信息化
+    must_title: 法律科技|法律大模型|智能合同|合同审查|律师.*AI|AI.*律师|法律 AI|人工智能.*律师|人工智能.*法律服务|生成式人工智能.*(办法|规定|监管)|深度合成.*规定|法律监督.*人工智能
     feed: null
     tracks: [law_x_ai, ai_x_law]
-    trust: specialty_media
+    trust: official
     egress: domestic
-    notes: 权威法治媒体；AI 司法、法律科技与立法报道。
+    notes: 权威法治媒体；v0.3 降为 P2 观察池，仅收法律×AI 硬交叉，避免外交/产业泛谈占满。
     status: { reachability: ok_web }
 
   - id: zh-chinacourt
     name: 中国法院网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.chinacourt.org/
     list_url: https://www.chinacourt.org/index.shtml
     link_re: 'href=["''](https?://www\.chinacourt\.org/article/detail/\d+/[^"'']+\.shtml)["''][^>]*>([^<]{8,100})<'
-    must_title: 人工智能|智能|算法|信息化|智慧法院|数字|大数据|网络|法律科技
+    must_title: 法律科技|人工智能.*审判|智能辅助.*办案|法律大模型|AI.*法官|生成式人工智能|智慧法院.*大模型
     feed: null
     tracks: [ai_x_law, law_x_ai]
     trust: official
     egress: domestic
-    notes: 司法信息化与智慧法院主渠道之一。
+    notes: 司法信息化；v0.3 收紧标题门，排除空泛「信息化/智慧法院」通稿。
     status: { reachability: ok_web }
 
   - id: zh-fayan-bigdata
     name: 中国司法大数据研究院 / 司法大数据服务网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://data.court.gov.cn/
+    must_title: 法律大模型|人工智能.*司法|智慧法院.*AI|法研.*大模型|智能辅助办案|法律科技
     feed: null
     tracks: [ai_x_law, law_x_ai]
     trust: official
     egress: domestic
-    notes: 智慧法院、司法 AI、法研杯等官方侧动态。
+    notes: 智慧法院、司法 AI；v0.3 降为观察池并收紧标题。
     status: { reachability: pending_probe }
 
   - id: zh-spp
@@ -829,33 +832,33 @@ sources:
     name: 正义网
     lang: zh
     region: [cn]
-    tier: P1
+    tier: P2
     channel: web
     homepage: https://www.jcrb.com/
     list_url: https://www.jcrb.com/
-    must_title: 人工智能|智能|算法|数字检察|大数据|网络|科技|信息化|法律科技
+    must_title: 数字检察.*人工智能|人工智能.*检察|法律大模型|智能辅助办案|法律科技|AI.*检察|检察.*大模型
     feed: null
     tracks: [ai_x_law, law_x_ai]
-    trust: specialty_media
+    trust: official
     egress: domestic
-    notes: 检察系统媒体；数字检察与科技办案报道。
+    notes: 检察系统媒体；v0.3 降 P2，禁止世赛/算力/产业调研等泛 AI 稿进入。
     status: { reachability: ok_web }
 
   - id: zh-secrss
     name: 安全内参
     lang: zh
     region: [cn]
-    tier: P1
+    tier: P2
     channel: web
     homepage: https://www.secrss.com/
     list_url: https://www.secrss.com/
     link_re: 'href=["''](https?://www\.secrss\.com/articles/\d+)["''][^>]*>([^<]{8,100})<'
-    must_title: 法律|合规|监管|诉讼|司法|律师|数据出境|个人信息|人工智能法|AI|大模型|融资
+    must_title: (法律|合规|诉讼|律师|司法|数据出境|个人信息).{0,24}(人工智能|大模型|AI)|(人工智能|大模型|AI).{0,24}(法律|合规|诉讼|律师|监管|人工智能法)|人工智能法|大模型.*合规
     feed: null
     tracks: [law_x_ai, ai_x_law]
     trust: specialty_media
     egress: domestic
-    notes: 安全/合规向；筛法律与 AI 交叉稿。
+    notes: 安全/合规向；v0.3 降 P2，排除蜜罐/越狱/攻防通稿，只留法律交叉。
     status: { reachability: ok_web }
 
   - id: zh-zhihe

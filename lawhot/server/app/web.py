@@ -11,7 +11,7 @@ SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 BRAND = "Legal Bulletins"
 BRAND_SUB = "法律 AI 每日读本"
-TAGLINE = "法律科技频道：产品、融资与实务优先；监管只留最重要的一条。每日中文最多 10、英文最多 5。"
+TAGLINE = "法律科技频道：只收法律×AI 交叉硬信号；产品、融资与实务优先；监管只留最重要的一条。每日中文最多 8、英文最多 6。"
 
 CAT_LABEL = {
     "regulation": "监管",

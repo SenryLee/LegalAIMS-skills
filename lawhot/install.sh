@@ -290,7 +290,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fail "unsafe package path: $relative_path"
   }
   case "$relative_path" in
-    SKILL.md|LICENSE|agents/openai.yaml|references/api.md|references/errors.md) ;;
+    SKILL.md|LICENSE|agents/openai.yaml|references/api.md|references/errors.md|references/quality.md) ;;
     *) fail "unexpected non-runtime package path: $relative_path" ;;
   esac
   [[ "$SEEN_FILES" != *$'\n'"$relative_path"$'\n'* ]] || fail "duplicate manifest path: $relative_path"
@@ -310,14 +310,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   chmod 0644 "$output_path"
 done < "$MANIFEST_FILE"
 
-[[ "$FILE_COUNT" -eq 5 ]] || fail "runtime package must contain exactly 5 files (got $FILE_COUNT)"
+[[ "$FILE_COUNT" -eq 6 ]] || fail "runtime package must contain exactly 6 files (got $FILE_COUNT)"
 
 for required in \
   SKILL.md \
   LICENSE \
   agents/openai.yaml \
   references/api.md \
-  references/errors.md
+  references/errors.md \
+  references/quality.md
 do
   [[ -f "$PACKAGE_DIR/$required" ]] || fail "runtime package is missing $required"
 done

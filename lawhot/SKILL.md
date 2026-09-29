@@ -4,14 +4,14 @@ description: 查询 LawHOT / Legal Bulletins（法锤法律 AI 资讯）的精�
 license: MIT. See LICENSE
 metadata:
   author: 法锤智能
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
 # LawHOT · 法律 AI 资讯
 
 通过 LawHOT 公开 v1 API 回答**全球法律 AI 资讯**与 **AI 对法律行业的启迪**类问题。默认给律师/法务/合规同学能扫完的中文简报；不展示 API 调试细节。
 
-**刊发口径（与网站首页一致）**：`mode=selected` 返回「每日读本」——中文最多 10、英文最多 5（英文宁缺毋滥），监管至多 1 条；偏重法律科技/融资/实务，而非政务汇编。
+**刊发口径（与网站首页一致）**：`mode=selected` 返回「每日读本」——中文最多 8、英文最多 6（英文优先补齐 LegalTech），监管至多 1 条；**只收法律×AI 交叉硬信号**，偏重法律科技/诉讼/实务，而非政务汇编或通用 AI 产业稿。质量标准见 [quality.md](references/quality.md)。
 
 ## 安全边界
 
@@ -28,6 +28,7 @@ metadata:
 3. 按 API 顺序选最重要的 3—8 条；标题主链接用 `links.lawhot`（若为空则用 `links.aihot` 兼容字段，再否则 `links.original`）。
 4. 只基于返回内容总结；证据不足就明说，不用训练记忆冒充实时结果。
 5. 失败时按 [错误与重试](references/errors.md) 降级，**不得改查其它新闻源冒充 LawHOT**。
+6. 若精选结果偏空或明显偏政务噪声，如实说明「精选池今日偏少」，可补一次 `mode=all` 并标注「未进入精选」；**不要**用训练记忆或通用 AI 新闻填满。
 
 | 用户意图 | 默认请求 |
 |---|---|
@@ -53,34 +54,39 @@ metadata:
 - v1 窗口仅 `24h` / `7d`。其它七天内范围取最小覆盖窗后本地收窄，并写明口径。
 - 当前无按 ID 取正文接口；深入阅读只给摘要与链接，不得绕过 API 抓网页冒充正文接口。
 - MVP 暂无 selected snapshot/changes；用户要「全部精选镜像」时如实说明尚未提供。
+- 通用 AI 热点（模型榜、消费级产品）默认不展开；用户若要通用 AI 资讯，可建议改用 `aihot` Skill（`aihot.news`），不要混充为法律 AI。
 
 完整参数见需要时再读的 [API 参考](references/api.md)。
 
 ## 请求
 
-- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.1.1 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
+- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.2.0 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
 - 同一完整 URL 保存 `ETag`，下次带 `If-None-Match`；`304` 则复用上次结果。
 - 定时任务对同一端点至少间隔 60 秒。
 
 ## 给用户的输出
 
-默认中文简报：
+默认中文简报（答案先行）：
 
 ```markdown
 ## 过去 24 小时法律 AI 重点
 
+一句话结论：……（本日精选里对律师/法务最值得先看的变化）
+
 1. [标题](links.lawhot)
    - 来源 · 北京时间 · 分类
-   - 一到两句人话摘要
+   - 一到两句人话摘要（先事实，再一层影响）
    - 对律师/法务的启示（仅在返回内容足以支持时写；不是法律意见）
 
 ---
 时间窗：过去 24 小时 · 共 N 条
-说明：资讯聚合，非法律意见；重要引用请回原文核对。
+说明：资讯聚合，非法律意见；重要引用请回原文核对。质量控制：仅法律×AI 交叉稿。
 ```
 
 - 先给 3—8 条重点；用户要完整列表再翻页。
+- **排序保持 API 顺序**，不要擅自把官媒监管通稿顶到前面。
 - 使用 `source.name`；时间转到 `Asia/Shanghai` 写成北京时间。
 - `publishedAt` 为空时可回退 `discoveredAt`，但须标明「LawHOT 收录时间」。
+- 若条目摘要像产业软文、会议通稿、空泛治理表态，可降权少写或不写「启示」。
 - 不展示 endpoint、cursor、ETag、JSON 字段名等实现细节。
 - 对外转发时保留 LawHOT 署名与站内链接；第三方原文版权归原作者。

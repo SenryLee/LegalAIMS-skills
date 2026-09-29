@@ -157,7 +157,7 @@ def seed_sources_to_db() -> dict[str, int]:
         seeded += 1
 
     db.set_meta("sources_seeded_at", datetime.now(timezone.utc).isoformat())
-    db.set_meta("sources_registry_version", "0.2")
+    db.set_meta("sources_registry_version", "0.3")
     counts = db.count_sources()
     logger.info(
         "seeded sources: yaml+builtin=%s db=%s ingestible=%s",

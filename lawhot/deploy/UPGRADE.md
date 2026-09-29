@@ -76,7 +76,7 @@ curl -sS http://127.0.0.1:18080/healthz
 期望看到类似：
 
 - `"version":"0.2.0"`
-- `"sources_registry_version":"0.2"`
+- `"sources_registry_version":"0.3"`
 - `sources.ingestible` 数字较大
 
 公网：
