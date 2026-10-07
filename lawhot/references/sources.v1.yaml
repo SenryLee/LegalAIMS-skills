@@ -6,10 +6,11 @@
 # status.reachability：存量多为 2026-07-25 探测；v0.4 起新增源默认 pending_probe，
 #         须实测填写，不要凭RSS 可达就断言有产出（如 zh-qbitai 曾长期 0 产出）。
 
-version: "0.5"
+version: "0.6"
 updated: "2026-10-08"
 product: lawhot
 changelog:
+  - "v0.6：刊发层加入跨期重复抑制（edition.py），与信源表无关，仅记版本对齐。"
   - "v0.5：评分移到客户端提示词（references/selection-score.md），服务端只做宽召回预筛。"
   -      新增 11 个源：LawNext（法律科技垂直）、The Verge AI、NIST 新闻、"
   -      NYT/Guardian Tech、EFF、ACLU、雷锋网、Solidot、InfoQ。"

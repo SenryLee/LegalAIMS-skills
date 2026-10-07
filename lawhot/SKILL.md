@@ -4,7 +4,7 @@ description: 查询 LawHOT / Legal Bulletins（法锤法律 AI 资讯）的精�
 license: MIT. See LICENSE
 metadata:
   author: 法锤智能
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # LawHOT · 法律 AI 资讯
@@ -65,7 +65,7 @@ metadata:
 
 ## 请求
 
-- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.5.0 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
+- API 匿名、只读、无需 Key。可设 `User-Agent: lawhot-skill/0.6.0 (+https://hot.fachuiai.com/lawhot-skill/)`，但不能因无法设置而拒绝查询。
 - 同一完整 URL 保存 `ETag`，下次带 `If-None-Match`；`304` 则复用上次结果。
 - 定时任务对同一端点至少间隔 60 秒。
 

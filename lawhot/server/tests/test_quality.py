@@ -186,7 +186,7 @@ class EditionTests(unittest.TestCase):
         self.assertTrue(edition_eligible(rows[1]))
         self.assertTrue(edition_eligible(rows[2]))
         self.assertFalse(edition_eligible(rows[3]))
-        picked = pick_edition_rows(rows, require_summary=True)
+        picked = pick_edition_rows(rows, require_summary=True, appearances={})
         ids = [r["id"] for r in picked]
         self.assertIn("2", ids)
         self.assertIn("3", ids)
@@ -217,7 +217,94 @@ class EditionTests(unittest.TestCase):
             },
         ]
         self.assertTrue(edition_eligible(rows[0]))
-        self.assertTrue(pick_edition_rows(rows, require_summary=True))
+        self.assertTrue(pick_edition_rows(rows, require_summary=True, appearances={}))
+
+
+class RepeatDecayTests(unittest.TestCase):
+    """跨期重复抑制：同一批条目不该连续多期原样刷屏。
+
+    背景：实测 10-02 至 10-07 连续 6 期日报入选的是同一批条目。池子扩到
+    127 个源之后这个问题只会更明显，所以要在刊发层做衰减。
+    """
+
+    def _row(self, rid: str, score: float, **kw) -> dict:
+        base = {
+            "id": rid,
+            "title": f"法律科技动态 {rid} 某某公司发布合同审查产品",
+            "summary": "该公司发布面向律所的合同审查产品，支持尽调与审计日志，已有多家律所落地。",
+            "source_id": "en-artificial-lawyer",
+            "source_name": "Artificial Lawyer",
+            "category": "legaltech",
+            "score": score,
+            "lang": "en",
+            "original_url": f"https://example.com/{rid}",
+            "selected": True,
+        }
+        base.update(kw)
+        return base
+
+    def test_repeat_item_is_pushed_back_by_score(self):
+        fresh = self._row("fresh", 70)
+        repeated = self._row("rep", 74, last_edition_at="2026-10-06")
+        # 加了 4 分新鲜度优势，但往期出现 3 次应被压回去
+        self.assertGreater(
+            edition_score(fresh, today="2026-10-07"),
+            edition_score({**repeated, "_appearances": 3}, today="2026-10-07"),
+        )
+        self.assertLess(edition_score({**repeated, "_appearances": 3}, today="2026-10-07"), 74)
+
+    def test_repeat_penalty_is_capped(self):
+        """惩罚分档递增且封顶——衰减只影响排序，不把分数打成负数。"""
+        row = self._row("r", 80, last_edition_at="2026-10-06")
+        s1 = edition_score({**row, "_appearances": 1}, today="2026-10-07")
+        s3 = edition_score({**row, "_appearances": 3}, today="2026-10-07")
+        s6 = edition_score({**row, "_appearances": 6}, today="2026-10-07")
+        s20 = edition_score({**row, "_appearances": 20}, today="2026-10-07")
+        self.assertGreater(s1, s3)
+        self.assertGreater(s3, s6)
+        # 8 次及以上封顶，之后不再继续下压
+        self.assertEqual(s6, s20)
+        self.assertGreater(min(s1, s3, s6, s20), 0)
+
+    def test_fresh_items_displace_repeats(self):
+        """池子里有足够新内容时，往期条目应被完全挤出。"""
+        old = [self._row(f"old{i}", 72) for i in range(6)]
+        for r in old:
+            r["last_edition_at"] = "2026-10-05"
+        new = [self._row(f"new{i}", 70) for i in range(6)]
+        ap = {r["id"]: (4 if r["id"].startswith("old") else 0) for r in old + new}
+        picked = pick_edition_rows(
+            old + new, require_summary=True, today="2026-10-07", appearances=ap
+        )
+        ids = [r["id"] for r in picked]
+        old_in = [i for i in ids if i.startswith("old")]
+        self.assertEqual(old_in, [], f"新内容充足时不应有重复条目入选，实际 {old_in}")
+        self.assertTrue(ids)
+
+    def test_repeats_fill_when_pool_is_thin(self):
+        """池子全是往期条目时仍应出刊——衰减是排序偏好，不是硬性排除。"""
+        # 用不同源，避免被单源上限（法律科技垂直源 3 条）干扰本用例的断言
+        rows = [
+            self._row(
+                f"old{i}",
+                70,
+                source_id=f"en-vertical-{i}",
+                source_name=f"Vertical {i}",
+            )
+            for i in range(4)
+        ]
+        ap = {r["id"]: 5 for r in rows}
+        picked = pick_edition_rows(
+            rows, require_summary=True, today="2026-10-07", appearances=ap
+        )
+        self.assertTrue(picked, "池子不足时必须能出刊，不能空刊")
+        self.assertEqual(len(picked), 4)
+
+    def test_appears_zero_means_no_penalty(self):
+        row = self._row("x", 75, last_edition_at=None)
+        base = edition_score(row, today="2026-10-07")
+        ap = edition_score({**row, "_appearances": 0}, today="2026-10-07")
+        self.assertEqual(base, ap)
 
 
 if __name__ == "__main__":

@@ -38,11 +38,16 @@ def init_db() -> None:
               track TEXT,
               lang TEXT,
               raw_json TEXT,
-              updated_at TEXT NOT NULL
+              updated_at TEXT NOT NULL,
+              -- 最近一次进入每日读本的日期（YYYY-MM-DD）。历史刊发次数不存
+              -- 在这里，而是从 editions 表实时数出，避免累加计数漂移。
+              last_edition_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_items_discovered ON items(discovered_at DESC);
             CREATE INDEX IF NOT EXISTS idx_items_published ON items(published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_items_selected ON items(selected, discovered_at DESC);
+            -- 注意：idx_items_last_edition 依赖 last_edition_at 列，该列在老库上
+            -- 不存在，必须等_migrate_items_columns 补列后才能建，不能写在这里。
 
             CREATE TABLE IF NOT EXISTS dailies (
               date TEXT PRIMARY KEY,
@@ -85,6 +90,23 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_sources_channel ON sources(channel, ingestible);
             """
         )
+        _migrate_items_columns(conn)
+
+
+def _migrate_items_columns(conn: sqlite3.Connection) -> None:
+    """给既有 items 表补列。
+
+    `CREATE TABLE IF NOT EXISTS` 对已存在的表不会补列，线上库是 v0.4 建的老表，
+    缺列会导致后续所有 SELECT * 查询报 no such column。这里做一次幂等迁移。
+    """
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(items)")}
+    if not existing:
+        return
+    if "last_edition_at" not in existing:
+        conn.execute("ALTER TABLE items ADD COLUMN last_edition_at TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_items_last_edition ON items(last_edition_at)"
+    )
 
 
 @contextmanager
@@ -123,6 +145,8 @@ def upsert_item(item: dict[str, Any]) -> None:
               track=excluded.track,
               raw_json=excluded.raw_json,
               updated_at=excluded.updated_at
+              -- discovered_at 刻意不更新：它表示「首次收录时间」，
+              -- 是新鲜度衰减的时间基准，不能被重复抓取刷新掉。
             """,
             {
                 **item,
@@ -303,6 +327,46 @@ def sync_selected_from_editions(days: int = 7) -> None:
             conn.execute(
                 f"UPDATE items SET selected = 1 WHERE id IN ({placeholders})", uniq
             )
+
+
+def mark_edition_published(date: str, ids: list[str]) -> None:
+    """记录本期刊发的条目，供新鲜度衰减使用。
+
+    刻意**不做累加计数**。累加有两个坏处：重编同一期会把计数刷高，
+    而清零重写又会抹掉该条目在其它期的记录。改为把当前日期写进
+    `last_edition_at`，历史次数由 `count_edition_appearances` 从 editions
+    表实时数出来——editions 是唯一事实来源，不会漂移。
+    """
+    if not ids:
+        return
+    placeholders = ",".join("?" for _ in ids)
+    with connect() as conn:
+        conn.execute(
+            f"UPDATE items SET last_edition_at = ? WHERE id IN ({placeholders})",
+            [date, *ids],
+        )
+
+
+def count_edition_appearances(
+    item_ids: list[str], *, before: str | None = None
+) -> dict[str, int]:
+    """统计每个条目在往期每日读本中出现过多少次。
+
+    以 editions 表为唯一事实来源，因此重编历史日期不会污染计数。
+    `before` 用于排除指定日期自身（重编当天时本期也算在窗口内）。
+    """
+    if not item_ids:
+        return {}
+    out: dict[str, int] = dict.fromkeys(item_ids, 0)
+    dates = [d for d in list_edition_dates(limit=30) if not before or d != before]
+    if not dates:
+        return out
+    for d in dates:
+        payload = get_edition(d) or {}
+        for iid in payload.get("item_ids") or []:
+            if iid in out:
+                out[iid] += 1
+    return out
 
 
 def set_meta(key: str, value: str) -> None:
