@@ -4,7 +4,7 @@
 
 - 匿名、只读、**无需 API Key / MCP**
 - 数据源：`https://hot.fachuiai.com/api/v1/*`
-- 安装包只含运行所需 5 个文件（不含中台 server / 信源表 / 部署脚本）
+- 安装包只含运行所需 6 个文件（不含中台 server / 信源表 / 部署脚本）
 
 ## 推荐安装（复制给 Agent）
 
@@ -71,6 +71,7 @@ LICENSE
 agents/openai.yaml
 references/api.md
 references/errors.md
+references/quality.md
 ```
 
 `README.md`、`server/`、`deploy/`、`references/sources.*` **不会**写入 Skill 目录。
@@ -107,7 +108,8 @@ references/errors.md
 
 - [`deploy/FULL-DEPLOY.md`](./deploy/FULL-DEPLOY.md) — 阿里云 Workbench 首次部署  
 - [`deploy/UPGRADE.md`](./deploy/UPGRADE.md) — 小升级（拉代码 + seed 信源）  
-- [`references/sources.md`](./references/sources.md) — 信源名单 v0.2  
+- [`references/sources.md`](./references/sources.md) — 信源名单 v0.3  
+- [`references/quality.md`](./references/quality.md) — 资讯质量标准（法律×AI 交叉）  
 - [`BUILD.md`](./BUILD.md) — 架构说明  
 
 站点健康：https://hot.fachuiai.com/healthz

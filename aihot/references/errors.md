@@ -20,7 +20,7 @@
 按稳定 `code` 分支，不解析 `detail` 人话：
 
 - `invalid_request`：修正明确参数；不要自动改成另一个问题。
-- `invalid_cursor`：普通分页停止并说明书签无效；不能丢掉 cursor 后回到第一页。
+- `invalid_cursor`：书签已失效（cursor 不能跨窗口、端点或查询条件，服务端演进也可能让旧书签作废）。恢复方式是**显式从第一页重新发起同一查询**，并如实说明列表已从头开始；禁止的是静默回退——把新第一页悄悄当成上次的续页拼下去。
 - `snapshot_required`：仅 selected changes 按 [sync.md](sync.md) 重建一次。
 - `rate_limited`：遵守 `Retry-After`，串行重试。
 - `temporarily_unavailable`：有限退避后告诉用户暂不可用。
@@ -35,7 +35,7 @@ CDN 安全层可能在请求到达应用前返回 566／567 极小 JSON，不保
 - `404`：普通资源不重试；日报 latest／指定日期按 [API 参考](api.md) 只查一次有界索引，不猜日期。
 - `429`：按 `Retry-After` 等待；没有该头时等待 60 秒。不要增加并发。
 - `5xx` 或超时：最多重试 2 次，采用指数退避。
-- 仍失败：说明 AI HOT 暂不可用，并提供 `https://aihot.virxact.com/feedback`；不得用训练记忆冒充实时数据。
+- 仍失败：说明 AIHOT 暂不可用，并提供 `https://aihot.news/feedback`；不得用训练记忆冒充实时数据。
 - 浏览器跨域错误：说明浏览器没有读到响应，不把它误报为用户账号或 IP 被封。
 
 持久轮询使用条件请求：

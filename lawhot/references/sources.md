@@ -1,8 +1,9 @@
-# LawHOT 信源名单 v0.2（可落地）
+# LawHOT 信源名单 v0.3（可落地）
 
-机器可读完整表见同目录 [`sources.v1.yaml`](./sources.v1.yaml)。本文是给人看的执行版。
+机器可读完整表见同目录 [`sources.v1.yaml`](./sources.v1.yaml)。本文是给人看的执行版。质量门见 [`quality.md`](./quality.md)。
 
-**更新日期**：2026-07-28  
+**更新日期**：2026-09-29  
+**相对 v0.2**：收紧正义网 / 法治日报 / 安全内参等官媒综合源的 `must_title` 与层级（降为 P2 观察池）；强制法律×AI 交叉，避免泛 AI 产业稿占满精选。  
 **相对 v0.1**：拆细 OpenAI/Anthropic 研究子频道；补 NIST / EU AI Office / UK AISI / 版权局；Legaltech Hub、Import AI、Daily Papers；中文法研/智合等；**明确排除一切付费墙源**。
 
 ## 定位

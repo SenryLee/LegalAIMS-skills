@@ -1,14 +1,27 @@
-# LawHOT 信源注册表 v0.2
+# LawHOT 信源注册表
 # 用途：内容中台抓取配置的人工底稿；字段可直接映射为 DB seed。
 # 原则：中英大致各半；头部模型厂商研究/政策文为重点；先 P0 再扩。
 # 硬约束：不接入付费墙/订阅库（Law.com Legaltech News、Bloomberg Law、Law360、
 #         The Information、SemiAnalysis 付费层等）；公开网页/RSS/官方 PDF 可进。
-# status.reachability：存量多为 2026-07-25 探测；v0.2 新增源默认 pending_probe。
+# status.reachability：存量多为 2026-07-25 探测；v0.4 起新增源默认 pending_probe，
+#         须实测填写，不要凭RSS 可达就断言有产出（如 zh-qbitai 曾长期 0 产出）。
 
-version: "0.2"
-updated: "2026-07-28"
+version: "0.6"
+updated: "2026-10-08"
 product: lawhot
 changelog:
+  - "v0.6：刊发层加入跨期重复抑制（edition.py），与信源表无关，仅记版本对齐。"
+  - "v0.5：评分移到客户端提示词（references/selection-score.md），服务端只做宽召回预筛。"
+  -      新增 11 个源：LawNext（法律科技垂直）、The Verge AI、NIST 新闻、"
+  -      NYT/Guardian Tech、EFF、ACLU、雷锋网、Solidot、InfoQ。"
+  -      放开 P2 抓取（可抓取源 81 → 117）。zh-qbitai 由 web+must_title 改为 rss 直取，"
+  -      从 0 产出恢复为每期约 3 条候选——标题过滤条件过严导致该源实际一直是空跑。"
+  -      移除 en-supremecourtblog（总数 128 → 127）：实测抓 20 条全部被 AI 硬门挡掉（0/20），"
+  -      纯法律动态已由 is_pure_legal 在预筛与刊发两层覆盖，无需占用抓取资源。"
+  - "v0.4：预筛放宽为「含 AI 信号」一条硬门，候选池从 3 条扩到可用规模；"
+  -      新增 12 个源，含法律科技垂直、通用 AI 一手与中文技术媒体。"
+  - "v0.3：收紧中文官媒/综合源（正义网/法治日报/安全内参）must_title 与层级；"
+  - "      强制法律×AI 交叉；对齐 AIHOT 高门槛精选，纠偏官媒泛 AI 占满精选。"
   - "v0.2：扩 OpenAI/Anthropic 研究子频道；补 NIST/EU AI Office/UK AISI/版权局；"
   - "      Legaltech Hub、Import AI、Daily Papers；中文法研/智合等；明确排除付费源。"
 
@@ -740,47 +753,48 @@ sources:
     name: 法治日报 / 法制网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: http://www.legaldaily.com.cn/
     list_url: http://www.legaldaily.com.cn/
-    must_title: 人工智能|大模型|算法|智能|生成式|深度合成|法律科技|智慧法院|数字检察|信息化
+    must_title: 法律科技|法律大模型|智能合同|合同审查|律师.*AI|AI.*律师|法律 AI|人工智能.*律师|人工智能.*法律服务|生成式人工智能.*(办法|规定|监管)|深度合成.*规定|法律监督.*人工智能
     feed: null
     tracks: [law_x_ai, ai_x_law]
-    trust: specialty_media
+    trust: official
     egress: domestic
-    notes: 权威法治媒体；AI 司法、法律科技与立法报道。
+    notes: 权威法治媒体；v0.3 降为 P2 观察池，仅收法律×AI 硬交叉，避免外交/产业泛谈占满。
     status: { reachability: ok_web }
 
   - id: zh-chinacourt
     name: 中国法院网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://www.chinacourt.org/
     list_url: https://www.chinacourt.org/index.shtml
     link_re: 'href=["''](https?://www\.chinacourt\.org/article/detail/\d+/[^"'']+\.shtml)["''][^>]*>([^<]{8,100})<'
-    must_title: 人工智能|智能|算法|信息化|智慧法院|数字|大数据|网络|法律科技
+    must_title: 法律科技|人工智能.*审判|智能辅助.*办案|法律大模型|AI.*法官|生成式人工智能|智慧法院.*大模型
     feed: null
     tracks: [ai_x_law, law_x_ai]
     trust: official
     egress: domestic
-    notes: 司法信息化与智慧法院主渠道之一。
+    notes: 司法信息化；v0.3 收紧标题门，排除空泛「信息化/智慧法院」通稿。
     status: { reachability: ok_web }
 
   - id: zh-fayan-bigdata
     name: 中国司法大数据研究院 / 司法大数据服务网
     lang: zh
     region: [cn]
-    tier: P0
+    tier: P2
     channel: web
     homepage: https://data.court.gov.cn/
+    must_title: 法律大模型|人工智能.*司法|智慧法院.*AI|法研.*大模型|智能辅助办案|法律科技
     feed: null
     tracks: [ai_x_law, law_x_ai]
     trust: official
     egress: domestic
-    notes: 智慧法院、司法 AI、法研杯等官方侧动态。
+    notes: 智慧法院、司法 AI；v0.3 降为观察池并收紧标题。
     status: { reachability: pending_probe }
 
   - id: zh-spp
@@ -829,33 +843,33 @@ sources:
     name: 正义网
     lang: zh
     region: [cn]
-    tier: P1
+    tier: P2
     channel: web
     homepage: https://www.jcrb.com/
     list_url: https://www.jcrb.com/
-    must_title: 人工智能|智能|算法|数字检察|大数据|网络|科技|信息化|法律科技
+    must_title: 数字检察.*人工智能|人工智能.*检察|法律大模型|智能辅助办案|法律科技|AI.*检察|检察.*大模型
     feed: null
     tracks: [ai_x_law, law_x_ai]
-    trust: specialty_media
+    trust: official
     egress: domestic
-    notes: 检察系统媒体；数字检察与科技办案报道。
+    notes: 检察系统媒体；v0.3 降 P2，禁止世赛/算力/产业调研等泛 AI 稿进入。
     status: { reachability: ok_web }
 
   - id: zh-secrss
     name: 安全内参
     lang: zh
     region: [cn]
-    tier: P1
+    tier: P2
     channel: web
     homepage: https://www.secrss.com/
     list_url: https://www.secrss.com/
     link_re: 'href=["''](https?://www\.secrss\.com/articles/\d+)["''][^>]*>([^<]{8,100})<'
-    must_title: 法律|合规|监管|诉讼|司法|律师|数据出境|个人信息|人工智能法|AI|大模型|融资
+    must_title: (法律|合规|诉讼|律师|司法|数据出境|个人信息).{0,24}(人工智能|大模型|AI)|(人工智能|大模型|AI).{0,24}(法律|合规|诉讼|律师|监管|人工智能法)|人工智能法|大模型.*合规
     feed: null
     tracks: [law_x_ai, ai_x_law]
     trust: specialty_media
     egress: domestic
-    notes: 安全/合规向；筛法律与 AI 交叉稿。
+    notes: 安全/合规向；v0.3 降 P2，排除蜜罐/越狱/攻防通稿，只留法律交叉。
     status: { reachability: ok_web }
 
   - id: zh-zhihe
@@ -1241,15 +1255,16 @@ sources:
     lang: zh
     region: [cn]
     tier: P1
-    channel: web
+    channel: rss
     homepage: https://www.qbitai.com/
-    must_title: 法律|合规|监管|版权|诉讼|司法|安全|治理
-    feed: null
-    tracks: [vendor_frontier]
+    feed: https://www.qbitai.com/feed
+    tracks: [ai_x_law, vendor_frontier]
     trust: general_media
     egress: domestic
-    notes: 滤软文与榜单；只收高相关。
-    status: { reachability: pending_probe }
+    notes: >
+      v0.4 升级：由 web + must_title 过滤改为 RSS 直取。原先靠标题正则
+      筛选「法律|合规|监管|版权」严重压低候选量；改由客户端 leg 轴判断传导。
+    status: { reachability: ok_rss }
 
   # -------------------------------------------------------------------------
   # P1 — LegalTech 厂商 / 实务扩展（滤营销）
@@ -1628,6 +1643,147 @@ sources:
       @FTC @ICONewsUK 以及 2–3 个 LegalTech 评论者；中文侧可少而精。
       仅作快讯，不替代正文源。
     status: { reachability: needs_x_access }
+
+  # ---- v0.4 新增：候选池扩容（2026-10-07 探测可达）----
+  #
+  # 质量判断移到客户端 skill（references/selection-score.md）后，服务端不再
+  # 替用户筛，只保留「含 AI 信号」一条硬门。此前预筛过严，mode=all&7d 实际只回
+  # 3 条候选，客户端无从筛选。以下源的目的就是把池子填起来。
+  # 分层：法律科技垂直 → 司法观察（纯法律动态对照）→ 通用 AI 一手 → 中文技术媒体
+
+  - id: en-lawnext-com
+    name: LawNext (Bob Ambrogi)
+    lang: en
+    region: [us, global]
+    tier: P0
+    channel: rss
+    homepage: https://www.lawnext.com/
+    feed: https://www.lawnext.com/feed
+    tracks: [ai_x_law]
+    trust: specialty_media
+    notes: >
+      法律科技垂直一手动态，产品发布与律所 AI 实践密度高。与 en-lawsites
+      同作者群但 RSS 独立，可并抓。
+    status: { reachability: ok_rss }
+
+  - id: en-nist-news
+    name: NIST News
+    lang: en
+    region: [us]
+    tier: P1
+    channel: rss
+    homepage: https://www.nist.gov/news-events/news
+    feed: https://www.nist.gov/news-events/news/rss.xml
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI 治理、评估框架与可解释性标准的一手来源，对法律行业有合规含义。
+    status: { reachability: ok_rss }
+
+  - id: en-verge-ai
+    name: The Verge · AI
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: rss
+    homepage: https://www.theverge.com/ai-artificial-intelligence
+    feed: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    tracks: [ai_x_law, vendor_frontier]
+    trust: general_media
+    notes: >
+      通用 AI 产品与公司动态。多数条目无法律传导、应由客户端压低；少量模型
+      能力边界与智能体产品形态会构成高价值素材。
+    status: { reachability: ok_rss }
+
+  - id: en-nyt-tech
+    name: New York Times · Technology
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.nytimes.com/section/technology
+    feed: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 算法问责、AI 与劳动/版权的调查报道。付费墙：只用RSS 摘要，不抓正文。
+    status: { reachability: ok_rss }
+
+  - id: en-guardian-tech
+    name: The Guardian · Technology
+    lang: en
+    region: [uk, global]
+    tier: P2
+    channel: rss
+    homepage: https://www.theguardian.com/uk/technology
+    feed: https://www.theguardian.com/uk/technology/rss
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 监管与算法调查报道较多；条目量大，靠客户端评分过滤。
+    status: { reachability: ok_rss }
+
+  - id: en-eff
+    name: Electronic Frontier Foundation
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.eff.org/
+    feed: https://www.eff.org/rss/updates.xml
+    tracks: [law_x_ai]
+    trust: think_tank
+    notes: 数字权利与 AI 政策 advocacy，对法律监管口径有参考价值。
+    status: { reachability: ok_rss }
+
+  - id: en-aclu
+    name: ACLU
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.aclu.org/
+    feed: https://www.aclu.org/rss
+    tracks: [law_x_ai]
+    trust: think_tank
+    notes: 算法与隐私议题 advocacy；条目多为立场评论，由 leg 轴判断。
+    status: { reachability: ok_rss }
+
+  - id: zh-leiphone
+    name: 雷峰网
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.leiphone.com/
+    feed: https://www.leiphone.com/feed
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: AI 产业与行业应用报道，合规与产业政策视角较多。
+    status: { reachability: ok_rss }
+
+  - id: zh-solidot
+    name: Solidot
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.solidot.org/
+    feed: https://www.solidot.org/index.rss
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 科技资讯聚合，条目短且多；靠 leg 轴低分过滤，不作重点源。
+    status: { reachability: ok_rss }
+
+  - id: zh-infoq
+    name: InfoQ 中文
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.infoq.cn/
+    feed: https://www.infoq.cn/feed
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 工程实践与架构资讯，偏开发者视角，法律传导弱，靠评分压低。
+    status: { reachability: ok_rss }
 
 # 入库过滤提示词/规则（给中台用，不是最终 prompt）
 ingest_rules:

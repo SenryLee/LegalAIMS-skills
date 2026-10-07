@@ -98,19 +98,20 @@ AI Act 相关动态
 法律 AI 日报
 ```
 
-**信源**：`lawhot/references/sources.v1.yaml` **v0.2**（约 110+ 源，排除付费墙）。  
-线上验收：`curl -s https://hot.fachuiai.com/healthz` 应见 `"sources_registry_version":"0.2"`。
+**信源**：`lawhot/references/sources.v1.yaml` **v0.3**（法律×AI 交叉精选；官媒综合源降权）。  
+**质量标准**：[`lawhot/references/quality.md`](./lawhot/references/quality.md)。  
+线上验收：`curl -s https://hot.fachuiai.com/healthz` 应见 `"sources_registry_version":"0.3"`（部署后）。
 
 → [安装 README](./lawhot/README.md) · [SKILL.md](./lawhot/SKILL.md) · [信源说明](./lawhot/references/sources.md)
 
 ---
 
-### 🔥 aihot · AI HOT 资讯
+### 🔥 aihot · AIHOT 资讯
 
-原 [aihot.virxact.com](https://aihot.virxact.com) 查询 skill，可与 lawhot 互补（通用 AI vs 法律 AI）。
+同步自上游 [AIHOT](https://github.com/KKKKhazix/AIHOT) / [aihot.news](https://aihot.news) Skill **v2.0.0**（兼容 `aihot.virxact.com`）。可与 lawhot 互补（通用 AI vs 法律 AI）。
 
 ```bash
-bash <(curl -fsSL https://aihot.virxact.com/aihot-skill/install.sh) --target claude
+bash <(curl -fsSL https://aihot.news/aihot-skill/install.sh) --target claude
 ```
 
 → [aihot/README.md](./aihot/README.md)

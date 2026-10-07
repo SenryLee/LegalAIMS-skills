@@ -51,13 +51,13 @@ Verify with: "What were the most important legal AI updates in the past 24 hours
 | Skill | What it does |
 |---|---|
 | [lawhot](./lawhot/) | Legal AI news via hot.fachuiai.com |
-| [aihot](./aihot/) | AI HOT news via aihot.virxact.com |
+| [aihot](./aihot/) | AIHOT news via aihot.news (Skill v2.0.0) |
 | [neat-freak](./neat-freak/) | Post-task docs / memory alignment |
 | [hv-analysis](./hv-analysis/) | Horizontal–vertical research PDF |
 | [khazix-writer](./khazix-writer/) | Long-form writing voice |
 | [storage-analyzer](./storage-analyzer/) | Disk cleanup report |
 
-Sources registry for LawHOT: `lawhot/references/sources.v1.yaml` **v0.2** (no paywalls). Live check: https://hot.fachuiai.com/healthz
+Sources registry for LawHOT: `lawhot/references/sources.v1.yaml` **v0.3** (legal×AI intersection; demoted noisy CN gov media). Quality bar: `lawhot/references/quality.md`. Live check: https://hot.fachuiai.com/healthz
 
 Maintained by [SenryLee](https://github.com/SenryLee). Some general skills originated from [KKKKhazix/khazix-skills](https://github.com/KKKKhazix/khazix-skills) (MIT).
 
