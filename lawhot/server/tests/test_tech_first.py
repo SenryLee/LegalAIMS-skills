@@ -6,6 +6,11 @@
 3. 规则版 `score_item` 必须有区分度（旧版挤在 96–100，等于没有区分度）
 
 用线上真实条目做回归，不依赖训练记忆或手写假分数。
+
+纯法律动态的对照价值原先靠线上源 SCOTUSblog 承担（每期抓 20 条、全部被
+AI 硬门挡掉）。该源已在 v0.5 从信源表移除——它只消耗抓取资源，不产出内容。
+对照能力改由下方 `pure_legal` / `lawfirm_hire` / `consumer` 三条固定样本承担，
+它们覆盖的正是「与 AI 无关的法律动态」这一类，判定逻辑与线上跑同一套。
 """
 
 from __future__ import annotations
@@ -187,6 +192,28 @@ def main() -> None:
     print(f"虚高检查：>90 分条目数 = {over90}")
     print(f"入库条数：{sum(1 for c in CASES if not c['rule'] or c['rule'][0] > 25)}"
           f" / {len(CASES)}（其余被预筛或压分挡掉）")
+
+    # 定位硬约束：纯法律动态（与 AI 无关）一条都不能进候选池。
+    # 原先这条约束靠线上 SCOTUSblog 盯着（实测 0/20 通过），该源已从信源表
+    # 移除，改由这里的固定样本守住。若将来有人放宽 is_pure_legal 或
+    # should_select 的门槛，这行会先失败。
+    pure_in_pool = [
+        c["id"] for c in CASES
+        if is_pure_legal(c["title"], c["summary"])
+        and should_select(
+            score_item(
+                c["title"],
+                c["summary"],
+                c["source"],
+                classify_category(c["title"], c["summary"], c["source"]),
+            ),
+            classify_category(c["title"], c["summary"], c["source"]),
+            c["source"],
+        )
+    ]
+    print(f"纯法律动态入库检查：{'全部挡掉' if not pure_in_pool else pure_in_pool}")
+    if pure_in_pool:
+        failures.append(f"纯法律动态进了候选池：{pure_in_pool}")
 
     print()
     if failures:

@@ -1,17 +1,24 @@
-# LawHOT 信源注册表 v0.2
+# LawHOT 信源注册表
 # 用途：内容中台抓取配置的人工底稿；字段可直接映射为 DB seed。
 # 原则：中英大致各半；头部模型厂商研究/政策文为重点；先 P0 再扩。
 # 硬约束：不接入付费墙/订阅库（Law.com Legaltech News、Bloomberg Law、Law360、
 #         The Information、SemiAnalysis 付费层等）；公开网页/RSS/官方 PDF 可进。
-# status.reachability：存量多为 2026-07-25 探测；v0.2 新增源默认 pending_probe。
+# status.reachability：存量多为 2026-07-25 探测；v0.4 起新增源默认 pending_probe，
+#         须实测填写，不要凭RSS 可达就断言有产出（如 zh-qbitai 曾长期 0 产出）。
 
-version: "0.4"
-updated: "2026-10-07"
+version: "0.5"
+updated: "2026-10-08"
 product: lawhot
 changelog:
-  - "v0.4：质量判断移到客户端 skill（references/selection-score.md）；服务端预筛放宽为"
-  -      「含 AI 信号」一条硬门，候选池从 3 条扩到可用规模。新增 12 个源（129 总数），"
-  -      含法律科技垂直、通用 AI 一手与中文技术媒体；SCOTUSblog 作纯法律动态对照源。"
+  - "v0.5：评分移到客户端提示词（references/selection-score.md），服务端只做宽召回预筛。"
+  -      新增 11 个源：LawNext（法律科技垂直）、The Verge AI、NIST 新闻、"
+  -      NYT/Guardian Tech、EFF、ACLU、雷锋网、Solidot、InfoQ。"
+  -      放开 P2 抓取（可抓取源 81 → 117）。zh-qbitai 由 web+must_title 改为 rss 直取，"
+  -      从 0 产出恢复为每期约 3 条候选——标题过滤条件过严导致该源实际一直是空跑。"
+  -      移除 en-supremecourtblog（总数 128 → 127）：实测抓 20 条全部被 AI 硬门挡掉（0/20），"
+  -      纯法律动态已由 is_pure_legal 在预筛与刊发两层覆盖，无需占用抓取资源。"
+  - "v0.4：预筛放宽为「含 AI 信号」一条硬门，候选池从 3 条扩到可用规模；"
+  -      新增 12 个源，含法律科技垂直、通用 AI 一手与中文技术媒体。"
   - "v0.3：收紧中文官媒/综合源（正义网/法治日报/安全内参）must_title 与层级；"
   - "      强制法律×AI 交叉；对齐 AIHOT 高门槛精选，纠偏官媒泛 AI 占满精选。"
   - "v0.2：扩 OpenAI/Anthropic 研究子频道；补 NIST/EU AI Office/UK AISI/版权局；"
@@ -1656,21 +1663,6 @@ sources:
     notes: >
       法律科技垂直一手动态，产品发布与律所 AI 实践密度高。与 en-lawsites
       同作者群但 RSS 独立，可并抓。
-    status: { reachability: ok_rss }
-
-  - id: en-supremecourtblog
-    name: SCOTUSblog
-    lang: en
-    region: [us]
-    tier: P1
-    channel: rss
-    homepage: https://scotusblog.com/
-    feed: https://scotusblog.com/feed/
-    tracks: [law_x_ai]
-    trust: specialty_media
-    notes: >
-      美国最高法院权威法律分析。多数条目与 AI 无关，是验证「纯法律动态能否被
-      客户端压到阈值以下」的对照源；若客户端普遍给这类高分，说明leg 判定有偏差。
     status: { reachability: ok_rss }
 
   - id: en-nist-news
