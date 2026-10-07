@@ -27,7 +27,13 @@ CATEGORIES = (
 AI_SIGNAL = [
     r"\bAI\b|人工智能|生成式|大模型|ChatGPT|Claude|Gemini|GPT-?\d|LLM|"
     r"机器学习|深度学习|智能体|Agent|算法推荐|深度合成|多模态|"
-    r"OpenAI|Anthropic|DeepSeek|法律大模型|Legal AI|legal AI",
+    r"OpenAI|Anthropic|DeepSeek|法律大模型|Legal AI|legal AI|"
+    # 法律科技本身就是 AI 应用于法律服务，硬门必须承认它，
+    # 否则「法律科技公司完成融资」这类不含「AI」字样的条目会被误挡。
+    r"法律科技|legaltech|legal tech|lawtech|LegalTech|法律智能|智能法律|"
+    # 通用模型语言：不写具体厂商/版本号时也常只用「模型」「上下文」等词
+    r"新模型|模型发布|开源模型|上下文窗口|长上下文|推理模型|多模态模型|"
+    r"token|参数|微调|蒸馏|嵌入|检索增强|RAG|提示词|prompt|幻觉|对齐",
 ]
 
 LEGAL_SIGNAL = [
@@ -67,12 +73,15 @@ NOISE_PATTERNS = [
     r"具身智能|人形机器人|端侧具身|自动驾驶出租车|无人机融资|芯片流片|"
     r"算力互济|词元工厂|绿电直连|智能算力规模|5G 工厂|5G工厂",
     r"世界技能大赛|世赛|网络安全宣传周|智能制造为主攻|"
-    r"活力中国调研行|东西部算力",
+    r"活力中国调研行|东西部算力|算电协同|智能经济绿色底座|"
+    r"研讨会|论坛|峰会|大会|年会|签约仪式|揭牌|"
     r"召开|座谈会|调研组|学习贯彻|表彰大会|参观考察|展演活动|"
     r"学术研讨会在.举行|联合声明呼吁",
     # 外交/国际治理空泛表态（无具体规则、执法或产品）
     r"外交部.*人工智能|参与人工智能全球治理.*中国方案|"
-    r"秉持建设性负责任态度参与人工智能",
+    r"秉持建设性负责任态度参与人工智能|"
+    r"共促.{0,8}人工智能.{0,10}(健康有序|有序发展)|"
+    r"贡献中国方案|推动算电协同",
     # 纯安全攻防/蜜罐/越狱，无法律落地
     r"蜜罐框架|躲过越狱|安全众测|DARPA.*智能体项目|"
     r"政府网站也被入侵|智能体失控风波",
@@ -147,26 +156,73 @@ def _has_legaltech(text: str) -> bool:
     return _hit(LEGALTECH_SIGNAL, text)
 
 
+# 公开别名：供 edition.py 等模块使用，避免跨模块引用私有名。
+has_ai_signal = _has_ai
+has_legal_signal = _has_legal
+has_legaltech_signal = _has_legaltech
+
+
 def _is_noise(title: str, summary: str = "") -> bool:
     text = f"{title}\n{summary}"
     if _hit(NOISE_PATTERNS, text):
-        # 噪声里若有极强法律科技硬信号，仍可放行（例如律所 AI 产品展演+具体产品）
-        if _has_legaltech(text) and re.search(
-            r"产品|融资|发布|开源|判决|条例|办法|起诉|System Card", text, re.I
-        ):
-            return False
-        return True
+        # 例外放行收紧：必须同时具备法律科技硬信号与可核对的具体动作。
+        # 旧规则只要命中「产品/融资/发布/开源/…」任一词就整条放行，导致
+        # 「推动算电协同」「共促全球人工智能健康有序发展」这类口号文靠一个词过关。
+        has_legaltech = _has_legaltech(text)
+        concrete = re.search(
+            r"融资(?:轮|额|规模)|收购|并购|IPO|估值|"
+            r"开源|发布|上线|判决|起诉|裁定|条例|办法|规定|指引|生效|违规|处罚|"
+            r"合同审查|尽调|检索|起草|Agent|智能体|基准|评测",
+            text,
+            re.I,
+        )
+        return not (has_legaltech and concrete)
     return False
 
 
+# 噪声门的公开别名：每日读本（edition）没有客户端评分兜底，必须直接用它挡住
+# 算力软文、会议通稿、外交空谈。
+is_noise = _is_noise
+
+
 def intersection_ok(title: str, summary: str = "") -> bool:
-    """法律 AI 交叉：必须同时有 AI 与法律/法律科技信号。"""
+    """AI 实质信号为硬门，法律侧降为加权维度。
+
+    定位是科技优先、法律语境优先：通用 AI 新闻（模型发布、Agent 框架开源）
+    必须能进入评分器，再由 LLM 评估它对法律工作的传导路径。若在此处要求
+    AI×法律硬交叉，通用科技新闻会在评分前被误挡，评分器无从判断 leg 维度。
+    """
     text = f"{title}\n{summary}"
     if not text.strip():
         return False
     if _is_noise(title, summary):
         return False
-    return _has_ai(text) and _has_legal(text)
+    if not _has_ai(text):
+        return False
+    # 法律信号不再作硬门：缺失只影响后续 leg 打分，不影响进入候选池。
+    # 但完全没有任何法律语境、且属消费/娱乐/图像生成类的通用科技新闻直接挡掉。
+    if _has_legal(text) or _has_legaltech(text):
+        return True
+    return not _is_off_domain_tech(title, summary)
+
+
+# 与法律服务、法律科技市场、法律监管无传导路径的通用科技方向。
+# 这些不属于「科技优先」要覆盖的素材：AI 圈重要，但对法律读者没有可迁移落点。
+OFF_DOMAIN_PATTERNS = [
+    r"图像生成|绘画|艺术创作|音乐生成|视频生成|自拍|写真|滤镜|"
+    r"游戏|Gaming|游戏内|电竞|漫画|动漫|头像",
+    r"推荐算法.*广告|广告投放|电商推荐|直播带货|社交裂变|增长黑客",
+    r"消费级.{0,4}(应用|功能|助手)|手机厂商.{0,6}(助手|大模型)|"
+    r"智能音箱|可穿戴|耳机|手表|扫地机器人",
+]
+
+
+def _is_off_domain_tech(title: str, summary: str = "") -> bool:
+    """纯消费/娱乐/图像类通用科技：AI 成立但与法律工作无传导路径。"""
+    text = f"{title}\n{summary}"
+    return bool(_hit(OFF_DOMAIN_PATTERNS, title)) or bool(
+        _hit(OFF_DOMAIN_PATTERNS, summary) and not _has_legal(text)
+    )
 
 
 def classify_category(title: str, summary: str, source: dict[str, Any]) -> str:
@@ -202,6 +258,10 @@ def classify_category(title: str, summary: str, source: dict[str, Any]) -> str:
         return "regulation"
     if _hit(LITIGATION_SIGNAL, text):
         return "litigation"
+    # 通用科技新闻（AI 成立、法律语境缺失）不再默认落到 regulation。
+    # 它进评分器由 LLM 判 leg，此前归 insight，避免官媒身份把通用科技伪装成监管动态。
+    if _is_off_domain_tech(title, summary):
+        return "insight"
     if "ai_x_law" in tracks and source.get("trust") != "official":
         return "insight"
     if "law_x_ai" in tracks or source.get("trust") == "official":
@@ -210,134 +270,166 @@ def classify_category(title: str, summary: str, source: dict[str, Any]) -> str:
 
 
 def relevance_ok(title: str, summary: str, source: dict[str, Any]) -> bool:
+    """宽召回预筛：只判断「是否与 AI 有关」，不判断「值不值得看」。
+
+    质量判断已移到客户端（skill 的 selection-score.md），服务端不再替用户
+    做筛选决策。因此这里只保留一条硬门——必须含 AI 实质信号；连法律信号都
+    不要求，因为通用科技新闻恰恰要靠客户端的 `leg` 轴去判断它对法律工作的
+    传导路径，服务端提前挡掉等于替客户端做了决定。
+
+    噪声（算力软文、会议通稿、纯法律动态）在这里**故意不拦**：由客户端评分
+    压分。实测收紧版预筛会把 7 天候选压到 3 条，客户端无池可选。
+    """
     text = f"{title}\n{summary}"
-    source_id = source.get("id") or ""
-    trust = source.get("trust") or ""
-    lang = source.get("lang") or ""
-
-    if _is_noise(title, summary):
+    if not text.strip():
         return False
+    if not _has_ai(text):
+        return False
+    # 只挡两类「与 AI 毫无关系」的极端情况：厂商营销与招聘
+    if re.search(
+        r"customer story|success story|客户案例|we'?re hiring|招聘|求职|"
+        r"限时|优惠|免费领取|课程报名",
+        text,
+        re.I,
+    ):
+        return False
+    return True
 
-    # 英文法律垂直媒体：标题/摘要沾 AI 或法律科技即可（源本身已是法律向）
-    if source_id in EN_LEGAL_VERTICAL_IDS:
-        return _has_ai(text) or _has_legaltech(text) or _has_legal(text)
 
-    # 中文严格源 / 官媒：强制交叉
-    if source_id in CN_STRICT_IDS or trust == "official":
-        return intersection_ok(title, summary)
+def is_pure_legal(title: str, summary: str = "") -> bool:
+    """无 AI 实质信号：纯法律/司法动态，或只是沾了「AI」字面的其它品类。
 
-    # 综合科技站：强制交叉
-    if source_id in {"zh-36kr-ai", "zh-thepaper-tech", "en-techcrunch-ai", "en-mit-tr-ai"}:
-        return intersection_ok(title, summary)
+    本刊定位是科技优先、法律语境优先，这类素材不在关注范围。用于给评分
+    结果兜底封顶，也用于规则版回退路径直接压到低位。
 
-    # 厂商一手：研究/安全/政策/法律向，拦营销
-    if trust == "vendor_primary":
-        if re.search(r"customer story|success story|客户案例|we're hiring", text, re.I):
-            return False
-        return _hit(
-            [
-                r"legal|law|court|律师|法律|合规|诉讼|版权|copyright|liability|"
-                r"safety|alignment|governance|policy|security|contract|eDiscovery|"
-                r"system card|model card|preparedness|model spec|economic index|responsible|"
-                r"AI Act|监管|版权局",
-            ],
-            text,
-        )
+    注意：消费级AI（AI 写真、AI 相机）同样落在这里——它们不是纯法律动态，
+    但同样没有法律传导，与纯法律动态做同样的处理。
+    """
+    text = f"{title}\n{summary}"
+    if not _has_ai(text):
+        return True
+    # AI 信号若只出现在专有名词里（智慧法院、AI 审判等口号式表述），不算实质信号
+    substantive = _has_legaltech(text) or _hit(
+        [
+            r"大模型|LLM|GPT|生成式|智能体|Agent|机器学习|深度学习|算法|"
+            r"模型|推理|开源|微调|RAG|提示词|prompt|token|算力|"
+            # 「人工智能促进法律监督提质增效」这类：AI 是主语且落在法律业务环节上，
+            # 不是背景提及。仅靠「+AI」二字不足以判定为实质，缺了这条会把
+            # 检察/法院侧的真实 AI 应用一并误判为纯法律动态。
+            r"人工智能.{0,12}(促进|赋能|提升|改进|应用|辅助|驱动|"
+            r"审判|裁判|监督|办案|检索|审查|释法)|"
+            r"(审判|裁判|监督|办案|检索|审查|释法|仲裁).{0,12}人工智能",
+        ],
+        text,
+    )
+    return not substantive
 
-    # 学术/智库
-    if trust in {"academic", "think_tank"}:
-        return intersection_ok(title, summary) or (
-            _has_ai(text) and _hit(REGULATION_SIGNAL, text)
-        )
 
-    # 其余 specialty_media：中文仍要交叉；英文可稍宽
-    if trust == "specialty_media":
-        if lang == "zh" or "cn" in (source.get("region") or []):
-            return intersection_ok(title, summary)
-        return _has_ai(text) or _has_legaltech(text)
+def is_ai_legal_cross(title: str, summary: str = "") -> bool:
+    """AI 实质信号 **且** 法律语境成立——真正的交叉素材。
 
-    # Federal Register 等
-    if source_id == "en-federal-register-ai":
-        return _hit(
-            [
-                r"artificial intelligence.*(rule|act|governance|safety|executive)",
-                r"(rule|act|governance|safety|executive).*artificial intelligence",
-            ],
-            text,
-        )
-
-    if source_id in {"en-whitehouse-news", "en-ftc-press", "en-above-the-law"}:
-        return _has_ai(text) and (_has_legal(text) or _hit(REGULATION_SIGNAL, text))
-
-    # 默认：交叉
-    return intersection_ok(title, summary)
+    这类条目不应被「官媒泛AI 封顶」规则压掉：判决、监管规则、法律科技产品
+    即使来自官方媒体，也是本刊的核心内容，而不是官媒空谈。
+    """
+    text = f"{title}\n{summary}"
+    if is_pure_legal(title, summary):
+        return False
+    return _has_legaltech(text) or _hit(LITIGATION_SIGNAL, text)
 
 
 def score_item(title: str, summary: str, source: dict[str, Any], category: str) -> float:
-    """注意力分 0–100。借鉴 AIHOT：实质份量 + 增量 + 证据 + 共振 + 可用性。"""
+    """注意力分 0–100（规则版，仅在 LLM 不可用时回退）。
+
+    LLM 主路径见 score_llm.py 与 prompts/selection-score.md。此处保留
+    同构的五轴与类型权重，但基线下调——旧版基线（sig=4/nov=4/cred=5）叠加
+    正则加分后会普遍冲到 95+，失去区分度。
+    """
     text = f"{title}\n{summary}"
     base = float(TRUST_SCORE.get(source.get("trust") or "", 55))
     source_id = source.get("id") or ""
 
-    # ---- 五轴近似（规则版，不用 LLM）----
+    # 纯法律动态：直接压到低位，不进入后续加权
+    if is_pure_legal(title, summary):
+        return round(min(base * 0.3, 20.0), 1)
+
+    # ---- 五轴近似（规则版回退，不用 LLM）----
+    # 基线取中等偏上而非旧版的偏高值：旧版（sig=4/nov=4/cred=5/reson=4/act=3）
+    # 叠加正则后普遍冲到 95+，同批条目挤成一团，失去区分度。这里下调一档，
+    # 让规则分与 should_select 的 68–90 门槛体系仍然相容。
     sig = 4  # 实质份量
-    nov = 4  # 信息增量
-    cred = 5  # 证据
-    reson = 4  # 对律师/法务共振
-    act = 3  # 可行动性
+    nov = 3  # 信息增量
+    cred = 4  # 证据
+    leg = 3  # 法律传导
+    act = 2  # 可行动性
+
+    # RSS 常无摘要，标题即全部证据。法律科技垂直源的标题通常是
+    # 「品牌 + 动作 + 标的」结构（如 Harvey raises new funding for legal AI），
+    # 其证据强度不应按缺摘要惩罚，否则优质条目会被系统性低估。
+    if not (summary or "").strip() and source_id in EN_LEGAL_VERTICAL_IDS:
+        cred += 3
+        nov += 2
+        sig += 1
 
     if _has_legaltech(text):
-        sig += 3
-        reson += 2
-        act += 2
+        leg += 4
+        sig += 1
+    elif source_id in EN_LEGAL_VERTICAL_IDS:
+        # 法律科技垂直源本身即是法律传导的强证据。RSS 摘要常为空，
+        # 若 leg 只靠正文命中会系统性低估这类优质条目。
+        leg += 2
     if _hit(
         [r"融资|funding|Series [ABC]|raised|估值"],
         text,
     ) and _has_legal(text):
-        sig += 2
-        reson += 2
+        sig += 1
+        leg += 1
+        # 融资、收购、IPO 是明确的商业动作，读者据此可判断赛道温度与竞争格局，
+        # 不因缺摘要而低估可行动性。
+        act += 2
     if _hit(LITIGATION_SIGNAL, text):
-        sig += 2
-        reson += 2
-        cred += 1
+        sig += 1
+        leg += 2
     if _hit(
         [
             r"AI Act|网信办.*办法|生成式人工智能.*办法|深度合成.*规定|"
-            r"Executive Order.*AI|Copyright Office|判决|System Card|Model Spec",
+            r"Executive Order.*AI|Copyright Office|System Card|Model Spec",
         ],
         text,
     ):
-        sig += 3
-        nov += 2
+        sig += 1
         cred += 2
-    if re.search(r"发布|上线|开源|推出|宣布|正式", title) and _has_legaltech(text):
-        nov += 2
+    if re.search(r"发布|上线|开源|推出", title) and _has_legaltech(text):
+        nov += 1
         act += 2
+    if _is_off_domain_tech(title, summary):
+        leg = min(leg, 1)
 
     # 噪声/空泛压分
     if _is_noise(title, summary):
         sig = min(sig, 2)
-        reson = min(reson, 2)
+        leg = min(leg, 1)
         act = min(act, 1)
     if re.search(r"展演|研讨会|宣传周|调研行|座谈会", title):
-        sig = min(sig, 3)
+        sig = min(sig, 2)
         act = min(act, 1)
-    if source_id in CN_STRICT_IDS and not _has_legaltech(text):
-        # 官媒泛 AI：封顶
-        sig = min(sig, 4)
-        reson = min(reson, 3)
+    # 官媒泛 AI：封顶。但真正的 AI×法律交叉（判决、监管规则、法律科技产品）
+    # 即使来自官方媒体也要豁免，否则「法院判决 AI 生成内容著作权归属」这类
+    # 本刊核心内容会被当成官媒空谈压掉。
+    if source_id in CN_STRICT_IDS and not is_ai_legal_cross(title, summary):
+        sig = min(sig, 3)
+        leg = min(leg, 2)
 
-    # 类型权重（对齐 AIHOT industry_event / product 思路）
+    # 类型权重（与 prompts/selection-score.md 的 leg 轴对齐）
     weights = {
-        "legaltech": (3, 2, 1, 2, 2),
+        "legaltech": (3, 2, 1, 3, 1),
         "practice": (2, 2, 1, 3, 2),
-        "litigation": (3, 2, 2, 3, 0),
-        "regulation": (3, 1, 3, 2, 1),
-        "vendor": (2, 2, 1, 2, 3),
+        "litigation": (2, 2, 2, 3, 1),
+        "regulation": (3, 2, 3, 1, 1),
+        "vendor": (2, 2, 1, 2, 2),
         "insight": (1, 3, 1, 3, 2),
     }
     w = weights.get(category, (2, 2, 2, 2, 2))
-    axes = [min(10, max(0, v)) for v in (sig, nov, cred, reson, act)]
+    axes = [min(10, max(0, v)) for v in (sig, nov, cred, leg, act)]
     attention = sum(a * wi for a, wi in zip(axes, w))  # 0–100
 
     # 与信任底分混合：注意力为主，信任为辅
@@ -345,40 +437,25 @@ def score_item(title: str, summary: str, source: dict[str, Any], category: str) 
 
     # 英文法律垂直加分；中文严格源无硬法律科技则减分
     if source_id in EN_LEGAL_VERTICAL_IDS:
-        score += 6
-    if source_id in CN_STRICT_IDS and not _has_legaltech(text):
-        score -= 14
+        score += 4
+    if source_id in CN_STRICT_IDS and not is_ai_legal_cross(title, summary):
+        score -= 10
     if source.get("trust") == "official" and category == "regulation":
         score -= 6
-    if source.get("tier") == "P0" and source_id in EN_LEGAL_VERTICAL_IDS:
-        score += 4
 
     return max(0.0, min(100.0, round(score, 1)))
 
 
 def should_select(score: float, category: str, source: dict[str, Any]) -> bool:
-    """进入候选池门槛（刊发另有每日配额与交叉门）。"""
-    source_id = source.get("id") or ""
+    """候选入库门槛（宽召回）。
 
-    if source_id == "en-federal-register-ai":
-        return score >= 90
-    if source_id in CN_STRICT_IDS:
-        # 中文官媒/综合源：更高门槛，宁缺毋滥
-        if category == "regulation":
-            return score >= 88
-        return score >= 82
-    if category == "regulation":
-        return score >= 84
-    if source.get("trust") == "official":
-        return score >= 84
-    if category == "vendor":
-        return score >= 76
-    if category in {"legaltech", "practice"}:
-        return score >= 70
-    if category == "litigation":
-        return score >= 74
-    if source_id in EN_LEGAL_VERTICAL_IDS and score >= 68:
+    服务端不再做质量判断，因此这里的门槛只用来剔除**明显该丢**的条目，
+    真正的高门槛由客户端 skill 的 selection-score.md 负责。
+    旧实现在68–90 分档之间卡选，结果是 7 天只剩 3 条候选，客户端无从筛选。
+
+    保留两档：纯法律动态（<=20）直接不进候选池，其余 30 分以上即可入库。
+    """
+    if score >= 30:
         return True
-    if source.get("tier") == "P0" and score >= 74:
-        return True
-    return score >= 78
+    # 30 分以下只放行高信任度的法律科技垂直源，避免优质条目因规则分偏低被误丢
+    return score >= 25 and (source.get("id") or "") in EN_LEGAL_VERTICAL_IDS

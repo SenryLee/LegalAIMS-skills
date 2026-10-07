@@ -5,10 +5,13 @@
 #         The Information、SemiAnalysis 付费层等）；公开网页/RSS/官方 PDF 可进。
 # status.reachability：存量多为 2026-07-25 探测；v0.2 新增源默认 pending_probe。
 
-version: "0.3"
-updated: "2026-09-29"
+version: "0.4"
+updated: "2026-10-07"
 product: lawhot
 changelog:
+  - "v0.4：质量判断移到客户端 skill（references/selection-score.md）；服务端预筛放宽为"
+  -      「含 AI 信号」一条硬门，候选池从 3 条扩到可用规模。新增 12 个源（129 总数），"
+  -      含法律科技垂直、通用 AI 一手与中文技术媒体；SCOTUSblog 作纯法律动态对照源。"
   - "v0.3：收紧中文官媒/综合源（正义网/法治日报/安全内参）must_title 与层级；"
   - "      强制法律×AI 交叉；对齐 AIHOT 高门槛精选，纠偏官媒泛 AI 占满精选。"
   - "v0.2：扩 OpenAI/Anthropic 研究子频道；补 NIST/EU AI Office/UK AISI/版权局；"
@@ -1244,15 +1247,16 @@ sources:
     lang: zh
     region: [cn]
     tier: P1
-    channel: web
+    channel: rss
     homepage: https://www.qbitai.com/
-    must_title: 法律|合规|监管|版权|诉讼|司法|安全|治理
-    feed: null
-    tracks: [vendor_frontier]
+    feed: https://www.qbitai.com/feed
+    tracks: [ai_x_law, vendor_frontier]
     trust: general_media
     egress: domestic
-    notes: 滤软文与榜单；只收高相关。
-    status: { reachability: pending_probe }
+    notes: >
+      v0.4 升级：由 web + must_title 过滤改为 RSS 直取。原先靠标题正则
+      筛选「法律|合规|监管|版权」严重压低候选量；改由客户端 leg 轴判断传导。
+    status: { reachability: ok_rss }
 
   # -------------------------------------------------------------------------
   # P1 — LegalTech 厂商 / 实务扩展（滤营销）
@@ -1631,6 +1635,162 @@ sources:
       @FTC @ICONewsUK 以及 2–3 个 LegalTech 评论者；中文侧可少而精。
       仅作快讯，不替代正文源。
     status: { reachability: needs_x_access }
+
+  # ---- v0.4 新增：候选池扩容（2026-10-07 探测可达）----
+  #
+  # 质量判断移到客户端 skill（references/selection-score.md）后，服务端不再
+  # 替用户筛，只保留「含 AI 信号」一条硬门。此前预筛过严，mode=all&7d 实际只回
+  # 3 条候选，客户端无从筛选。以下源的目的就是把池子填起来。
+  # 分层：法律科技垂直 → 司法观察（纯法律动态对照）→ 通用 AI 一手 → 中文技术媒体
+
+  - id: en-lawnext-com
+    name: LawNext (Bob Ambrogi)
+    lang: en
+    region: [us, global]
+    tier: P0
+    channel: rss
+    homepage: https://www.lawnext.com/
+    feed: https://www.lawnext.com/feed
+    tracks: [ai_x_law]
+    trust: specialty_media
+    notes: >
+      法律科技垂直一手动态，产品发布与律所 AI 实践密度高。与 en-lawsites
+      同作者群但 RSS 独立，可并抓。
+    status: { reachability: ok_rss }
+
+  - id: en-supremecourtblog
+    name: SCOTUSblog
+    lang: en
+    region: [us]
+    tier: P1
+    channel: rss
+    homepage: https://scotusblog.com/
+    feed: https://scotusblog.com/feed/
+    tracks: [law_x_ai]
+    trust: specialty_media
+    notes: >
+      美国最高法院权威法律分析。多数条目与 AI 无关，是验证「纯法律动态能否被
+      客户端压到阈值以下」的对照源；若客户端普遍给这类高分，说明leg 判定有偏差。
+    status: { reachability: ok_rss }
+
+  - id: en-nist-news
+    name: NIST News
+    lang: en
+    region: [us]
+    tier: P1
+    channel: rss
+    homepage: https://www.nist.gov/news-events/news
+    feed: https://www.nist.gov/news-events/news/rss.xml
+    tracks: [law_x_ai]
+    trust: official
+    notes: AI 治理、评估框架与可解释性标准的一手来源，对法律行业有合规含义。
+    status: { reachability: ok_rss }
+
+  - id: en-verge-ai
+    name: The Verge · AI
+    lang: en
+    region: [us, global]
+    tier: P1
+    channel: rss
+    homepage: https://www.theverge.com/ai-artificial-intelligence
+    feed: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    tracks: [ai_x_law, vendor_frontier]
+    trust: general_media
+    notes: >
+      通用 AI 产品与公司动态。多数条目无法律传导、应由客户端压低；少量模型
+      能力边界与智能体产品形态会构成高价值素材。
+    status: { reachability: ok_rss }
+
+  - id: en-nyt-tech
+    name: New York Times · Technology
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.nytimes.com/section/technology
+    feed: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 算法问责、AI 与劳动/版权的调查报道。付费墙：只用RSS 摘要，不抓正文。
+    status: { reachability: ok_rss }
+
+  - id: en-guardian-tech
+    name: The Guardian · Technology
+    lang: en
+    region: [uk, global]
+    tier: P2
+    channel: rss
+    homepage: https://www.theguardian.com/uk/technology
+    feed: https://www.theguardian.com/uk/technology/rss
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 监管与算法调查报道较多；条目量大，靠客户端评分过滤。
+    status: { reachability: ok_rss }
+
+  - id: en-eff
+    name: Electronic Frontier Foundation
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.eff.org/
+    feed: https://www.eff.org/rss/updates.xml
+    tracks: [law_x_ai]
+    trust: think_tank
+    notes: 数字权利与 AI 政策 advocacy，对法律监管口径有参考价值。
+    status: { reachability: ok_rss }
+
+  - id: en-aclu
+    name: ACLU
+    lang: en
+    region: [us]
+    tier: P2
+    channel: rss
+    homepage: https://www.aclu.org/
+    feed: https://www.aclu.org/rss
+    tracks: [law_x_ai]
+    trust: think_tank
+    notes: 算法与隐私议题 advocacy；条目多为立场评论，由 leg 轴判断。
+    status: { reachability: ok_rss }
+
+  - id: zh-leiphone
+    name: 雷峰网
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.leiphone.com/
+    feed: https://www.leiphone.com/feed
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: AI 产业与行业应用报道，合规与产业政策视角较多。
+    status: { reachability: ok_rss }
+
+  - id: zh-solidot
+    name: Solidot
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.solidot.org/
+    feed: https://www.solidot.org/index.rss
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 科技资讯聚合，条目短且多；靠 leg 轴低分过滤，不作重点源。
+    status: { reachability: ok_rss }
+
+  - id: zh-infoq
+    name: InfoQ 中文
+    lang: zh
+    region: [cn]
+    tier: P2
+    channel: rss
+    homepage: https://www.infoq.cn/
+    feed: https://www.infoq.cn/feed
+    tracks: [ai_x_law]
+    trust: general_media
+    notes: 工程实践与架构资讯，偏开发者视角，法律传导弱，靠评分压低。
+    status: { reachability: ok_rss }
 
 # 入库过滤提示词/规则（给中台用，不是最终 prompt）
 ingest_rules:

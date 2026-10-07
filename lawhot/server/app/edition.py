@@ -1,7 +1,8 @@
 """每日固定刊：中文最多 8、英文最多 6；监管最多 1（可为 0）；宁缺毋滥。
 
-刊发原则（对齐 AIHOT「高门槛精选」）：
-- 必须通过法律×AI 交叉门；官媒泛 AI / 安全攻防噪声不得进刊
+刊发原则（科技优先、法律语境优先）：
+- 硬门是「AI 实质信号」；法律相关性由客户端评分的 leg 轴决定，不作硬门
+- 纯法律/司法动态（与 AI 无关）由 is_pure_legal 封顶，不进刊
 - 英文 LegalTech 垂直源优先；中文官媒严格限流
 - 单源上限更低，避免正义网/法治日报/安全内参占满
 """
@@ -15,7 +16,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from . import db
-from .classify import intersection_ok
+from .classify import has_ai_signal, is_noise, is_pure_legal
 from .config import PUBLIC_BASE_URL
 from .translate import looks_chinese
 
@@ -103,81 +104,58 @@ def summary_ok(summary: str | None) -> bool:
 
 
 def edition_eligible(row: Any) -> bool:
-    """刊发硬门：法律×AI 交叉；摘要占位不挡冷启动，但占位会在 require_summary 时过滤。"""
+    """刊发硬门：含 AI 实质信号，且不是无实质 AI 的纯法律动态。
+
+    与候选池预筛（`relevance_ok`）的区别很关键：候选池是宽召回，目的是给
+    客户端评分留足素材；**每日读本是服务端直接产出的公开页面，没有客户端
+    评分兜底**，所以这里必须自己挡掉纯法律动态与噪声。
+
+    两道门的分工：
+    - `relevance_ok`（候选池）：只要求含 AI 信号，故意宽松
+    - `edition_eligible`（每日读本）：加挡 `is_pure_legal` 与噪声门，宁缺毋滥
+    """
     title = row["title"] or ""
     summary = row["summary"] or ""
     if not title.strip():
         return False
-    sid = row["source_id"] or ""
-    # 英文法律垂直源：交叉可稍松（源本身法律向）
-    if sid in LEGALTECH_SOURCE_IDS and not is_zh_item(row):
-        return True
-    if not intersection_ok(title, summary):
+    text = f"{title}\n{summary}"
+    if not has_ai_signal(text):
         return False
-    # 官媒/综合法治：还要硬信号（产品/诉讼/正式规则/法律科技），挡「司法护航产业」空话
-    if sid in GOV_SOURCE_IDS:
-        text = f"{title}\n{summary}"
-        hard = re.search(
-            r"法律科技|法律大模型|合同审查|智能起草|eDiscovery|Legal AI|法律 AI|"
-            r"律师.*人工智能|人工智能.*律师|法律服务.*产品|生成式人工智能.*(办法|规定)|"
-            r"深度合成.*规定|AI Act|起诉|判决|System Card|数字检察.*大模型|"
-            r"智能辅助办案|法律监督.*人工智能|人工智能.*法律监督",
-            text,
-            re.I,
-        )
-        if not hard:
-            return False
-        if re.search(r"展演活动|学术研讨会|宣传周|调研行|座谈会|司法护航.*产业|行稳致远", title):
-            return False
-    return True
+    # 「人工智能促进法律监督提质增效」这类有实质内容的要留，
+    # 「司法护航人工智能产业」这类只沾字面的不留。
+    if is_pure_legal(title, summary):
+        return False
+    # 噪声门在这一层必须保留：候选池里噪声可以靠分数压掉（反正不进简报），
+    # 但每日读本是直接对外的页面，不能靠分数让运营人员自己去滤。
+    return not is_noise(title, summary)
 
 
 def edition_score(row: Any) -> float:
+    """刊发排序分。
+
+    客户端评分（references/selection-score.md）已是主判断，这里**不再对分数
+    做正则加减**。旧实现在基础分上叠加 ±28/−22/+14/+12/+10 等十余处规则，
+    会把评分的结论重新改写回去——那等于评分白做。
+
+    现在只保留两类不会扭曲判断的调整：
+    1) 摘要质量：不合格的条目不该靠标题唬人入选（硬性惩罚，非加分）；
+    2) 结构性偏好：法律科技垂直源略优先，用于打破同分平局。
+    """
     score = float(row["score"] or 0)
     sid = row["source_id"] or ""
-    cat = row["category"] or ""
-    title = row["title"] or ""
     summary = row["summary"] or ""
-    text = f"{title}\n{summary}"
 
-    if sid in LEGALTECH_SOURCE_IDS:
-        score += 14
-    if sid in GOV_SOURCE_IDS:
-        score -= 28
-    if cat in {"legaltech", "practice"}:
-        score += 10
-    if cat == "litigation":
-        score += 8
-    if cat == "vendor":
-        score += 4
-    if cat == "regulation":
+    # 摘要不合格是硬缺陷：用惩罚而非加分，避免把同分的合格条目挤下去
+    if not summary_ok(summary):
         score -= 12
-    if summary_ok(summary):
-        score += 6
-    else:
-        score -= 10
 
-    # 法律科技硬信号
-    if re.search(
-        r"legaltech|法律科技|法律大模型|合同审查|eDiscovery|CoCounsel|Harvey|Legora|"
-        r"律所.*AI|AI.*律所|法律 AI|Legal AI|智慧.*律师|智能起草|尽调|"
-        r"法律服务.*产品|System Card|Model Spec",
-        text,
-        re.I,
-    ):
-        score += 12
-
-    # 纯政务/会议/宣传噪声
-    if re.search(
-        r"召开|座谈会|调研组|学习贯彻|表彰大会|参观考察|宣传周|调研行|"
-        r"展演活动|学术研讨会|世赛|算力|外交部.*人工智能",
-        title,
-    ):
-        score -= 22
-
-    # 英文优先一点，纠偏国内官媒占满
-    if not is_zh_item(row) and sid in LEGALTECH_SOURCE_IDS:
-        score += 8
+    # 结构性破平局（幅度控制在一个质量档位内，不参与实质判断）：
+    # 法律科技垂直源优先，官媒/综合法治源略降权。旧实现用 -28 惩罚官媒，
+    # 那是在没有 LLM 分的年代用规则代替判断；现在只保留同分排序所需的最小差值。
+    if sid in LEGALTECH_SOURCE_IDS:
+        score += 3
+    if sid in GOV_SOURCE_IDS:
+        score -= 3
 
     return score
 
@@ -285,7 +263,8 @@ def build_edition_payload(date: str, rows: list[Any]) -> dict[str, Any]:
         "title": f"Legal Bulletins 每日读本 {date}",
         "lead": (
             f"本日刊发 {len(rows)} 条（中文 {cn} / 英文 {en}，上限 {CN_QUOTA}+{EN_QUOTA}；"
-            "监管最多 1 条，官媒综合源整刊限流）。只收法律×AI 交叉硬信号，偏重 LegalTech、诉讼与实务。"
+            "监管最多 1 条，官媒综合源整刊限流）。以技术如何改变法律服务为主线，"
+            "偏重 LegalTech、诉讼与实务，纯法律动态不进刊。"
         ),
         "quota": {"zh": CN_QUOTA, "en": EN_QUOTA, "regulation_max": REGULATION_MAX},
         "counts": {"zh": cn, "en": en, "total": len(rows)},
@@ -310,14 +289,9 @@ def rebuild_edition_for_date(date: str | None = None) -> dict[str, Any]:
         limit=300,
         offset=0,
     )
-    pool = [
-        r
-        for r in candidates
-        if (r["selected"] or (r["score"] or 0) >= 70) and edition_eligible(r)
-    ]
-    if not pool:
-        # 冷启动：仍要求交叉门，避免官媒泛 AI 回流
-        pool = [r for r in candidates if edition_eligible(r)]
+    # 候选池只要求「已入库且含 AI 信号」，不再用分数卡池：
+    # 分数是规则版粗排，客户端会用提示词重新评分，70 分门槛会把大池子砍掉。
+    pool = [r for r in candidates if edition_eligible(r)]
 
     picked = pick_edition_rows(pool, require_summary=True)
     # 冷启动：摘要尚未润色时，允许无摘要先出刊，避免首页空白

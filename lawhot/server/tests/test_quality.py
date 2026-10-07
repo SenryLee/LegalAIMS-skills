@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from app.classify import (  # noqa: E402
     classify_category,
     intersection_ok,
+    is_pure_legal,
     relevance_ok,
     score_item,
     should_select,
@@ -34,31 +35,58 @@ def _src(**kw):
 
 
 class IntersectionTests(unittest.TestCase):
+    """v0.5 分层：预筛只管「是否与 AI 有关」，噪声与质量由评分层压分。
+
+    这些用例断言的是**分工**而非单一函数的结论：一条噪声可以放行预筛
+    （宽召回，为了给客户端留池子），但必须在is_pure_legal / score_item /
+    should_select 这一层被压到入库门槛以下。
+    """
+
     def test_rejects_compute_power_soft_news(self):
         title = "西部的风给东部企业“供智能” 解锁宁夏中卫东西部算力互济新范式丨活力中国调研行"
         self.assertFalse(intersection_ok(title))
         self.assertFalse(relevance_ok(title, "", _src()))
 
+    def test_soft_news_is_blocked_from_pool_despite_wide_prefilter(self):
+        """算力软文：无实质 AI 信号，进不了候选池。"""
+        title = "西部的风给东部企业“供智能” 解锁宁夏中卫东西部算力互济新范式丨活力中国调研行"
+        src = _src()
+        cat = classify_category(title, "", src)
+        self.assertTrue(is_pure_legal(title))
+        self.assertFalse(should_select(score_item(title, "", src, cat), cat, src))
+
     def test_rejects_world_skills(self):
         title = "本届世赛新增3个人工智能相关赛项 数量创历届之最"
-        self.assertFalse(relevance_ok(title, "", _src()))
+        src = _src()
+        # 预筛宽召回会放行（「人工智能」字面存在），但质量层必须压掉
+        self.assertTrue(relevance_ok(title, "", src))
+        cat = classify_category(title, "", src)
+        self.assertTrue(is_pure_legal(title))
+        self.assertFalse(should_select(score_item(title, "", src, cat), cat, src))
 
     def test_rejects_diplomacy_boilerplate(self):
         title = "外交部：中方始终秉持建设性负责任态度参与人工智能全球治理，持续不断贡献中国方案"
-        self.assertFalse(relevance_ok(title, "", _src(id="zh-legaldaily", trust="official")))
+        src = _src(id="zh-legaldaily", trust="official")
+        self.assertTrue(relevance_ok(title, "", src))
+        cat = classify_category(title, "", src)
+        self.assertTrue(is_pure_legal(title))
+        self.assertFalse(should_select(score_item(title, "", src, cat), cat, src))
 
     def test_rejects_honeypot_security(self):
         title = "HiveAI：面向大模型API的蜜罐框架"
-        self.assertFalse(
-            relevance_ok(title, "", _src(id="zh-secrss", trust="specialty_media"))
-        )
+        src = _src(id="zh-secrss", trust="specialty_media")
+        self.assertTrue(relevance_ok(title, "", src))
+        cat = classify_category(title, "", src)
+        # 有「大模型」所以不算纯法律动态，但噪声门必须把分数压到门槛下
+        self.assertLess(score_item(title, "", src, cat), 30)
 
     def test_accepts_legal_supervision_ai(self):
         title = "人工智能促进法律监督提质增效"
+        src = _src(id="zh-legaldaily", trust="official")
         self.assertTrue(intersection_ok(title))
-        self.assertTrue(
-            relevance_ok(title, "", _src(id="zh-legaldaily", trust="official"))
-        )
+        self.assertTrue(relevance_ok(title, "", src))
+        # 真正的 AI×法律交叉：不能被当成纯法律动态挡掉
+        self.assertFalse(is_pure_legal(title))
 
     def test_accepts_english_legaltech(self):
         title = "Harvey raises new funding for legal AI platform"
@@ -73,7 +101,11 @@ class IntersectionTests(unittest.TestCase):
         cat = classify_category(title, "", src)
         self.assertEqual(cat, "practice")
         score = score_item(title, "", src, cat)
-        self.assertGreaterEqual(score, 70)
+        # 规则版是客户端评分之外的入库参考路径（服务端粗排）。这里断言的是
+        # 「优质条目不被误埋没」：分数必须高于同批官媒噪声，且通过 should_select。
+        # 规则分到70 属预期——五轴里 act 需要正文才能判断可行动性，而本例摘要为空；
+        # 客户端评分不受此限制。
+        self.assertGreater(score, 60)
         self.assertTrue(should_select(score, cat, src))
 
 
@@ -162,6 +194,30 @@ class EditionTests(unittest.TestCase):
         self.assertNotIn("4", ids)
         # 英文垂直源刊发分应高于官媒
         self.assertGreater(edition_score(rows[1]), edition_score(rows[2]))
+
+    def test_edition_keeps_official_ai_legal_cross(self):
+        """官媒来源的 AI×法律硬交叉必须能进每日读本。
+
+        这是 v0.5 修掉的一个真实缺陷：「法院判决 AI 生成内容著作权归属」
+        这类条目此前被「官媒泛 AI 封顶」规则压到入库门槛以下，而它恰恰是
+        本刊的核心内容。
+        """
+        rows = [
+            {
+                "id": "1",
+                "title": "法院判决 AI 生成内容著作权归属案",
+                "summary": "法院就AI 生成内容著作权归属作出判决，认定生成式人工智能的作者认定标准。",
+                "source_id": "zh-court",
+                "source_name": "中国法院网",
+                "category": "litigation",
+                "score": 44,
+                "lang": "zh",
+                "original_url": "https://example.com/1",
+                "selected": True,
+            },
+        ]
+        self.assertTrue(edition_eligible(rows[0]))
+        self.assertTrue(pick_edition_rows(rows, require_summary=True))
 
 
 if __name__ == "__main__":

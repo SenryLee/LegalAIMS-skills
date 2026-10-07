@@ -48,8 +48,14 @@ def _yaml_sources() -> list[dict[str, Any]]:
 
 
 def is_ingestible(source: dict[str, Any]) -> bool:
-    """Whether this source can be fetched by the current MVP pipeline (RSS/web list)."""
-    if source.get("tier") not in {"P0", "P1"}:
+    """Whether this source can be fetched by the current pipeline (RSS/web list).
+
+    v0.4：质量判断移到客户端 skill 后，服务端不再替用户筛，因此放开 P2。
+    候选池大小直接决定客户端评分的发挥空间——只接 P0/P1 会让池子小到
+    没有筛选余地。判断标准改为「能不能抓」：有 feed 或列表页就抓，
+    噪声交给客户端的 selection-score.md 压分。
+    """
+    if source.get("tier") not in {"P0", "P1", "P2"}:
         return False
     if source.get("enabled") is False:
         return False
